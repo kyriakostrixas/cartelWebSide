@@ -1,0 +1,173 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <title>Cartel Reservations Admin</title>
+    <link rel="stylesheet" href="admin.css?v=stats-fixed-number-row" />
+    <script src="admin.js?v=stats-fixed-number-row" defer></script>
+  </head>
+  <body>
+    <main class="admin-shell">
+      <section class="login-view" id="login-view" hidden>
+        <div class="login-panel">
+          <p class="eyebrow">Cartel Admin</p>
+          <h1>Reservations</h1>
+          <p>Sign in to review bookings, confirm tables, and keep the night organised.</p>
+          <form id="login-form" class="login-form">
+            <label>
+              Admin password
+              <input name="password" type="password" autocomplete="current-password" required />
+            </label>
+            <button type="submit">Sign In</button>
+            <p class="status-message" id="login-status" role="status" aria-live="polite"></p>
+          </form>
+        </div>
+      </section>
+
+      <section class="dashboard-view" id="dashboard-view" hidden>
+        <header class="admin-header">
+          <div>
+            <p class="eyebrow">Cartel Admin</p>
+            <h1>Reservations</h1>
+          </div>
+          <div class="header-actions">
+            <a href="/" class="ghost-button">Website</a>
+            <button id="statistics-button" type="button" class="ghost-button">Statistics</button>
+            <button id="reservations-button" type="button" class="ghost-button" hidden>
+              Reservations
+            </button>
+            <button id="manual-open" type="button" class="ghost-button">Add Reservation</button>
+            <button id="refresh-button" type="button">Refresh</button>
+            <button id="logout-button" type="button" class="ghost-button">Logout</button>
+          </div>
+        </header>
+
+        <section id="reservations-view">
+          <section class="stats-grid" aria-label="Reservation overview">
+            <article>
+              <span>Total</span>
+              <strong id="stat-total">0</strong>
+            </article>
+            <article>
+              <span>Pending</span>
+              <strong id="stat-pending">0</strong>
+            </article>
+            <article>
+              <span>Confirmed</span>
+              <strong id="stat-confirmed">0</strong>
+            </article>
+            <article>
+              <span>Cancels</span>
+              <strong id="stat-cancelled">0</strong>
+            </article>
+            <article>
+              <span>Guests</span>
+              <strong id="stat-guests">0</strong>
+            </article>
+            <article>
+              <span>Arrived Guests</span>
+              <strong id="stat-arrived-guests">0</strong>
+            </article>
+            <article>
+              <span>Not Arrived Guests</span>
+              <strong id="stat-not-arrived-guests">0</strong>
+            </article>
+          </section>
+
+          <section class="toolbar" aria-label="Reservation filters">
+            <label>
+              Search
+              <input id="search-input" type="search" placeholder="Name, phone, or email" />
+            </label>
+            <label>
+              Date
+              <input id="date-filter" type="date" />
+            </label>
+            <label>
+              Status
+              <select id="status-filter">
+                <option value="all">All</option>
+              <option value="pending">Pending</option>
+              <option value="confirmed">Confirmed</option>
+              <option value="cancelled">Cancelled</option>
+              <option value="arrived">Arrived</option>
+              <option value="not_arrived">Not Arrived</option>
+            </select>
+          </label>
+            <button id="clear-filters" type="button" class="ghost-button">Clear</button>
+          </section>
+
+          <section class="reservations-panel">
+            <div class="panel-heading">
+              <h2>Booking List</h2>
+              <p id="result-count">No reservations loaded</p>
+            </div>
+            <div class="reservations-list" id="reservations-list"></div>
+            <p class="empty-state" id="empty-state" hidden>No reservations match these filters.</p>
+          </section>
+        </section>
+
+        <section class="statistics-view" id="statistics-view" hidden>
+          <div class="panel-heading">
+            <h2>Statistics</h2>
+          </div>
+          <div class="statistics-list" id="statistics-list"></div>
+        </section>
+
+        <section class="manual-modal" id="manual-modal" hidden>
+          <button
+            id="manual-close"
+            type="button"
+            class="manual-backdrop"
+            aria-label="Close manual reservation form"
+          ></button>
+          <form class="manual-panel" id="manual-form">
+            <div class="manual-heading">
+              <div>
+                <p class="eyebrow">Admin Entry</p>
+                <h2>Add Reservation</h2>
+              </div>
+              <button id="manual-x" type="button" class="ghost-button">Close</button>
+            </div>
+            <div class="manual-grid">
+              <label>
+                Name
+                <input name="name" type="text" autocomplete="name" required />
+              </label>
+              <label>
+                Phone
+                <input name="phone" type="tel" autocomplete="tel" required />
+              </label>
+              <label>
+                Date
+                <input name="date" type="date" required />
+              </label>
+              <label>
+                Time
+                <input name="time" type="time" required />
+              </label>
+              <label>
+                Guests
+                <input name="guests" type="number" min="1" value="2" required />
+              </label>
+              <label class="manual-notes">
+                Notes
+                <textarea
+                  name="notes"
+                  rows="4"
+                  placeholder="Preferred area, celebration, or anything useful"
+                ></textarea>
+              </label>
+            </div>
+            <div class="manual-actions">
+              <button type="submit">Save Reservation</button>
+              <button id="manual-cancel" type="button" class="ghost-button">Cancel</button>
+            </div>
+            <p class="status-message" id="manual-status" role="status" aria-live="polite"></p>
+          </form>
+        </section>
+      </section>
+    </main>
+  </body>
+</html>
