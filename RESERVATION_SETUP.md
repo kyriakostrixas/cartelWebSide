@@ -58,6 +58,22 @@ The `SMTP_FROM` email must be a sender verified in Brevo.
 You can also use a hidden `.env` file if you prefer. If both files exist,
 `email-settings.env` wins.
 
+## Brevo Delivery And Bounce Alerts
+
+To confirm reservations only after Brevo reports that the customer received
+the confirmation email, configure a Brevo transactional webhook to call this URL
+after the website is deployed:
+
+```text
+https://your-domain.com/api/email/brevo-webhook
+```
+
+Enable delivered, hard bounce, soft bounce, invalid email, blocked, error, spam,
+and complaint events. When Brevo reports delivered, the admin panel will mark
+the reservation as confirmed. When Brevo reports a failure, the admin panel will
+mark the email status as failed/bounced and show a popup with the customer name
+and phone number while the admin page is open.
+
 ## Admin Dashboard
 
 Open:

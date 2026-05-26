@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cartel Reservations Admin</title>
-    <link rel="stylesheet" href="admin.css?v=stats-fixed-number-row" />
-    <script src="admin.js?v=stats-fixed-number-row" defer></script>
+    <link rel="stylesheet" href="admin.css?v=admin-confirm-dialog" />
+    <script src="admin.js?v=delivery-confirm-flow" defer></script>
   </head>
   <body>
     <main class="admin-shell">
@@ -166,6 +166,20 @@
             </div>
             <p class="status-message" id="manual-status" role="status" aria-live="polite"></p>
           </form>
+        </section>
+
+        <section class="admin-message-modal" id="admin-message-modal" hidden>
+          <div class="admin-message-backdrop"></div>
+          <div class="admin-message-panel" role="dialog" aria-modal="true" aria-labelledby="admin-message-title">
+            <p class="eyebrow" id="admin-message-kicker">Reservation update</p>
+            <h2 id="admin-message-title">Email sent</h2>
+            <p id="admin-message-text"></p>
+            <p class="admin-message-detail" id="admin-message-detail" hidden></p>
+            <div class="admin-message-actions">
+              <button id="admin-message-confirm" type="button">OK</button>
+              <button id="admin-message-cancel" type="button" class="ghost-button" hidden>Cancel</button>
+            </div>
+          </div>
         </section>
       </section>
     </main>

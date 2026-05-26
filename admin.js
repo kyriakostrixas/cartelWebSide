@@ -27,6 +27,14 @@ const manualOpen = document.querySelector("#manual-open");
 const manualModal = document.querySelector("#manual-modal");
 const manualForm = document.querySelector("#manual-form");
 const manualStatus = document.querySelector("#manual-status");
+const adminMessageModal = document.querySelector("#admin-message-modal");
+const adminMessagePanel = adminMessageModal?.querySelector(".admin-message-panel");
+const adminMessageKicker = document.querySelector("#admin-message-kicker");
+const adminMessageTitle = document.querySelector("#admin-message-title");
+const adminMessageText = document.querySelector("#admin-message-text");
+const adminMessageDetail = document.querySelector("#admin-message-detail");
+const adminMessageConfirm = document.querySelector("#admin-message-confirm");
+const adminMessageCancel = document.querySelector("#admin-message-cancel");
 const manualCloseButtons = [
   document.querySelector("#manual-close"),
   document.querySelector("#manual-x"),
@@ -36,6 +44,58 @@ const manualCloseButtons = [
 let reservations = [];
 let statistics = null;
 const ADMIN_TOKEN_KEY = "cartel_admin_token";
+const failedEmailAlerts = new Set();
+
+function showAdminMessage({
+  kicker = "Reservation update",
+  title,
+  message,
+  detail = "",
+  confirmLabel = "OK",
+  cancelLabel = "Cancel",
+  showCancel = false,
+  type = "success",
+}) {
+  return new Promise((resolve) => {
+    if (
+      !adminMessageModal ||
+      !adminMessagePanel ||
+      !adminMessageKicker ||
+      !adminMessageTitle ||
+      !adminMessageText ||
+      !adminMessageDetail ||
+      !adminMessageConfirm ||
+      !adminMessageCancel
+    ) {
+      resolve("confirm");
+      return;
+    }
+
+    adminMessagePanel.classList.toggle("error", type === "error");
+    adminMessageKicker.textContent = kicker;
+    adminMessageTitle.textContent = title;
+    adminMessageText.textContent = message;
+    adminMessageDetail.textContent = detail;
+    adminMessageDetail.hidden = !detail;
+    adminMessageConfirm.textContent = confirmLabel;
+    adminMessageCancel.textContent = cancelLabel;
+    adminMessageCancel.hidden = !showCancel;
+    adminMessageModal.hidden = false;
+
+    const finish = (action) => {
+      adminMessageModal.hidden = true;
+      adminMessageConfirm.removeEventListener("click", onConfirm);
+      adminMessageCancel.removeEventListener("click", onCancel);
+      resolve(action);
+    };
+    const onConfirm = () => finish("confirm");
+    const onCancel = () => finish("cancel");
+
+    adminMessageConfirm.addEventListener("click", onConfirm);
+    adminMessageCancel.addEventListener("click", onCancel);
+    adminMessageConfirm.focus();
+  });
+}
 
 function adminToken() {
   return sessionStorage.getItem(ADMIN_TOKEN_KEY) || "";
@@ -120,8 +180,9 @@ function emailStatusLabel(status) {
   const labels = {
     not_configured: "not sent",
     not_sent: "not sent",
-    sent: "sent",
-    failed: "failed",
+    sent: "sent / awaiting delivery",
+    delivered: "delivered",
+    failed: "failed / bounced",
   };
 
   return labels[status] || String(status || "not sent").replaceAll("_", " ");
@@ -192,6 +253,10 @@ function setStats() {
   document.querySelector("#stat-not-arrived-guests").textContent = activeItems
     .filter((item) => !hasArrived(item))
     .reduce((total, item) => total + Number(item.guests || 0), 0);
+}
+
+function renderStats() {
+  setStats();
 }
 
 function reservationCard(reservation) {
@@ -343,10 +408,6 @@ function statisticsSection(title, subtitle, stats) {
           <h4>Top five customers</h4>
           ${customerList(stats.top_customers)}
         </section>
-        <section>
-          <h4>Worst customers</h4>
-          ${customerList(stats.worst_customers, "worst")}
-        </section>
       </div>
     </article>
   `;
@@ -364,7 +425,6 @@ function renderStatistics() {
       statisticsSection(season.label, "", {
         best_customer: season.best_customer,
         top_customers: season.top_customers,
-        worst_customers: season.worst_customers,
         most_guest_date: season.most_guest_date,
       }),
     )
@@ -383,6 +443,55 @@ function renderReservations() {
     filtered.length === 1 ? "1 reservation shown" : `${filtered.length} reservations shown`;
 }
 
+function isEmailFailure(status) {
+  return ["failed", "bounced", "blocked", "invalid"].includes(String(status || ""));
+}
+
+function notifyEmailDeliveryFailures(nextReservations) {
+  const previousById = new Map(reservations.map((item) => [String(item.id), item]));
+  nextReservations.forEach((reservation) => {
+    const previous = previousById.get(String(reservation.id));
+    const alertKey = `${reservation.id}:${reservation.notification_status}`;
+    if (
+      previous?.notification_status === "sent" &&
+      isEmailFailure(reservation.notification_status) &&
+      !failedEmailAlerts.has(alertKey)
+    ) {
+      failedEmailAlerts.add(alertKey);
+      showAdminMessage({
+        kicker: "Email delivery failed",
+        title: "Confirm by phone",
+        message:
+          "Brevo reported that the confirmation email did not arrive. Please contact the customer by phone.",
+        detail: `${reservation.name || "Customer"} · ${reservation.phone || "No phone"}`,
+        type: "error",
+      });
+    }
+    if (
+      previous?.notification_status === "sent" &&
+      reservation.notification_status === "delivered" &&
+      reservation.status === "confirmed" &&
+      !failedEmailAlerts.has(`delivered:${reservation.id}`)
+    ) {
+      failedEmailAlerts.add(`delivered:${reservation.id}`);
+      showAdminMessage({
+        kicker: "Email delivered",
+        title: "Reservation confirmed",
+        message:
+          "Brevo confirmed the customer received the email. The reservation has now been confirmed automatically.",
+        detail: `${reservation.name || "Customer"} · ${reservation.phone || "No phone"}`,
+      });
+    }
+  });
+}
+
+function setReservations(nextReservations, { notifyFailures = false } = {}) {
+  if (notifyFailures) {
+    notifyEmailDeliveryFailures(nextReservations);
+  }
+  reservations = nextReservations;
+}
+
 async function loadReservations() {
   const response = await fetch("/api/admin/reservations", {
     headers: adminHeaders(),
@@ -398,9 +507,24 @@ async function loadReservations() {
     throw new Error(result.error || "Could not load reservations.");
   }
 
-  reservations = result.reservations || [];
+  setReservations(result.reservations || []);
   showDashboard();
   showReservationsView();
+  renderReservations();
+}
+
+async function checkEmailDeliveryUpdates() {
+  if (!adminToken() || dashboardView.hidden) return;
+
+  const response = await fetch("/api/admin/reservations", {
+    headers: adminHeaders(),
+  });
+  if (!response.ok) return;
+
+  const result = await response.json();
+  if (!result.ok) return;
+
+  setReservations(result.reservations || [], { notifyFailures: true });
   renderReservations();
 }
 
@@ -424,21 +548,33 @@ async function loadStatistics() {
   showStatisticsView();
 }
 
-async function updateStatus(id, status) {
+async function updateStatus(id, status, options = {}) {
   const response = await fetch("/api/admin/reservations/status", {
     method: "POST",
     headers: adminHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ id, status }),
+    body: JSON.stringify({ id, status, force_confirm: Boolean(options.forceConfirm) }),
   });
   const result = await response.json();
 
   if (!response.ok || !result.ok) {
-    throw new Error(result.error || "Could not update reservation.");
+    const error = new Error(result.error || "Could not update reservation.");
+    error.result = result;
+    throw error;
   }
 
   const reservation = reservations.find((item) => String(item.id) === String(id));
-  if (reservation) reservation.status = status;
+  if (reservation) {
+    if (result.reservation) {
+      Object.assign(reservation, result.reservation);
+    } else {
+      reservation.status = status;
+    }
+    if (result.notification?.status) {
+      reservation.notification_status = result.notification.status;
+    }
+  }
   renderReservations();
+  return result;
 }
 
 async function updateArrival(id, arrived) {
@@ -563,10 +699,52 @@ reservationsList.addEventListener("click", async (event) => {
   if (!button) return;
 
   const card = button.closest(".reservation-card");
+  const reservation = reservations.find((item) => String(item.id) === String(card.dataset.id));
   button.disabled = true;
 
   try {
-    await updateStatus(card.dataset.id, button.dataset.status);
+    const result = await updateStatus(card.dataset.id, button.dataset.status);
+    if (button.dataset.status === "confirmed") {
+      const emailWasSent = result.notification?.status === "sent";
+      await showAdminMessage({
+        title: emailWasSent ? "Email sent" : "Reservation confirmed",
+        message: emailWasSent
+          ? "Brevo accepted the confirmation email. The reservation will stay pending until Brevo reports that the email was delivered."
+          : "The reservation is now confirmed successfully.",
+      });
+    }
+  } catch (error) {
+    const result = error.result || {};
+    const failedReservation = result.reservation || reservation;
+    if (button.dataset.status === "confirmed" && result.notification) {
+      const action = await showAdminMessage({
+        kicker: "Email not sent",
+        title: "Confirm by phone?",
+        message:
+          "The confirmation email was not sent. Please continue the confirmation by phone, or cancel to keep the reservation in its previous status.",
+        detail: failedReservation
+          ? `${failedReservation.name || "Customer"} · ${failedReservation.phone || "No phone"}`
+          : "",
+        confirmLabel: "Continue to confirm",
+        cancelLabel: "Cancel",
+        showCancel: true,
+        type: "error",
+      });
+
+      if (action === "confirm") {
+        await updateStatus(card.dataset.id, "confirmed", { forceConfirm: true });
+        await showAdminMessage({
+          title: "Confirmed by phone",
+          message: "The reservation is confirmed. Please contact the customer by phone using the details shown on the booking card.",
+        });
+      }
+    } else {
+      await showAdminMessage({
+        title: "Update failed",
+        message: error.message || "Could not update reservation.",
+        type: "error",
+      });
+    }
   } finally {
     button.disabled = false;
   }
@@ -582,6 +760,8 @@ clearFilters.addEventListener("click", () => {
   statusFilter.value = "all";
   renderReservations();
 });
+
+setInterval(checkEmailDeliveryUpdates, 15000);
 
 refreshButton.addEventListener("click", async () => {
   if (statisticsView.hidden) {

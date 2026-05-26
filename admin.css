@@ -331,6 +331,73 @@ button,
   padding: clamp(22px, 4vw, 34px);
 }
 
+.admin-message-modal {
+  position: fixed;
+  inset: 0;
+  z-index: 30;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+}
+
+.admin-message-backdrop {
+  position: absolute;
+  inset: 0;
+  background:
+    radial-gradient(circle at 22% 14%, rgba(205, 161, 90, 0.2), transparent 28rem),
+    rgba(0, 0, 0, 0.74);
+  backdrop-filter: blur(12px);
+}
+
+.admin-message-panel {
+  position: relative;
+  z-index: 1;
+  width: min(520px, 100%);
+  border: 1px solid rgba(205, 161, 90, 0.38);
+  background:
+    linear-gradient(145deg, rgba(25, 19, 12, 0.98), rgba(7, 7, 6, 0.98)),
+    var(--panel);
+  box-shadow: 0 34px 100px rgba(0, 0, 0, 0.66);
+  padding: clamp(26px, 4vw, 40px);
+  text-align: center;
+}
+
+.admin-message-panel h2 {
+  margin: 0;
+  color: var(--champagne);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 4vw, 3rem);
+  font-weight: 500;
+  line-height: 1;
+}
+
+.admin-message-panel p {
+  margin: 16px 0 0;
+  color: var(--muted);
+  line-height: 1.7;
+}
+
+.admin-message-panel.error {
+  border-color: rgba(217, 133, 114, 0.54);
+}
+
+.admin-message-detail {
+  border: 1px solid rgba(205, 161, 90, 0.22);
+  background: rgba(205, 161, 90, 0.06);
+  color: var(--ink) !important;
+  font-weight: 800;
+  letter-spacing: 0.03em;
+  padding: 14px;
+}
+
+.admin-message-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 12px;
+  margin-top: 26px;
+}
+
 .manual-heading,
 .manual-actions {
   display: flex;
@@ -555,19 +622,26 @@ button,
 
 .statistics-grid {
   display: grid;
-  grid-template-columns: repeat(2, minmax(0, 1fr));
+  grid-template-columns: repeat(12, minmax(0, 1fr));
   gap: 0;
 }
 
 .statistics-grid section {
+  grid-column: span 6;
   min-width: 0;
   padding: 20px 22px;
   border-right: 1px solid rgba(205, 161, 90, 0.14);
   border-bottom: 1px solid rgba(205, 161, 90, 0.14);
 }
 
-.statistics-grid section:nth-child(2n) {
+.statistics-grid section:nth-child(2) {
   border-right: 0;
+}
+
+.statistics-grid section:nth-child(3) {
+  grid-column: 1 / -1;
+  border-right: 0;
+  background: rgba(205, 161, 90, 0.035);
 }
 
 .statistics-grid h4 {
@@ -661,6 +735,7 @@ button,
 
   .statistics-grid section,
   .statistics-grid section:nth-child(2n) {
+    grid-column: auto;
     border-right: 0;
   }
 

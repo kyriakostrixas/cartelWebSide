@@ -830,6 +830,7 @@ p {
 }
 
 .reservation-form input,
+.reservation-form select,
 .reservation-form textarea {
   width: 100%;
   border: 1px solid rgba(205, 161, 90, 0.26);
@@ -838,17 +839,99 @@ p {
   color: var(--ink);
   font: inherit;
   font-size: 1rem;
+  height: 51px;
   letter-spacing: 0;
+  line-height: 1.2;
   outline: 0;
   padding: 14px 14px;
   text-transform: none;
 }
 
+.reservation-form select {
+  appearance: none;
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(247, 239, 224, 0.78) 50%) calc(100% - 22px) 50% / 7px 7px no-repeat,
+    linear-gradient(135deg, rgba(247, 239, 224, 0.78) 50%, transparent 50%) calc(100% - 16px) 50% / 7px 7px no-repeat,
+    rgba(7, 7, 6, 0.74);
+  padding: 0 42px 0 14px;
+}
+
 .reservation-form textarea {
+  height: auto;
   resize: vertical;
 }
 
+.time-dropdown {
+  position: relative;
+  z-index: 5;
+}
+
+.time-trigger {
+  width: 100%;
+  height: 51px;
+  border: 1px solid rgba(205, 161, 90, 0.26);
+  background:
+    linear-gradient(45deg, transparent 50%, rgba(247, 239, 224, 0.78) 50%) calc(100% - 22px) 50% / 7px 7px no-repeat,
+    linear-gradient(135deg, rgba(247, 239, 224, 0.78) 50%, transparent 50%) calc(100% - 16px) 50% / 7px 7px no-repeat,
+    rgba(7, 7, 6, 0.74);
+  color: var(--ink);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  letter-spacing: 0;
+  line-height: 1;
+  padding: 0 42px 0 14px;
+  text-align: center;
+  text-transform: none;
+}
+
+.time-trigger:focus {
+  border-color: rgba(205, 161, 90, 0.68);
+  box-shadow: 0 0 0 3px rgba(205, 161, 90, 0.12);
+  outline: 0;
+}
+
+.time-menu {
+  position: absolute;
+  top: calc(100% + 8px);
+  left: 0;
+  right: 0;
+  z-index: 10;
+  border: 1px solid rgba(205, 161, 90, 0.34);
+  background: rgba(14, 13, 11, 0.98);
+  box-shadow: 0 18px 42px rgba(0, 0, 0, 0.5);
+}
+
+.time-option {
+  display: block;
+  width: 100%;
+  border: 0;
+  border-bottom: 1px solid rgba(205, 161, 90, 0.12);
+  background: transparent;
+  color: rgba(247, 239, 224, 0.86);
+  cursor: pointer;
+  font: inherit;
+  font-size: 1rem;
+  letter-spacing: 0;
+  line-height: 1;
+  padding: 12px 14px;
+  text-align: center;
+}
+
+.time-option:last-child {
+  border-bottom: 0;
+}
+
+.time-option:hover,
+.time-option:focus,
+.time-option.is-selected {
+  background: rgba(205, 161, 90, 0.16);
+  color: var(--ink);
+  outline: 0;
+}
+
 .reservation-form input:focus,
+.reservation-form select:focus,
 .reservation-form textarea:focus {
   border-color: rgba(205, 161, 90, 0.68);
   box-shadow: 0 0 0 3px rgba(205, 161, 90, 0.12);
@@ -889,6 +972,66 @@ p {
 
 .form-status.error {
   color: #f2b8a8;
+}
+
+.reservation-message {
+  position: fixed;
+  inset: 0;
+  z-index: 80;
+  display: grid;
+  place-items: center;
+  padding: 24px;
+  background:
+    radial-gradient(circle at 18% 16%, rgba(205, 161, 90, 0.22), transparent 28rem),
+    radial-gradient(circle at 82% 12%, rgba(158, 170, 120, 0.12), transparent 25rem),
+    rgba(7, 7, 6, 0.84);
+  backdrop-filter: blur(14px);
+}
+
+.reservation-message[hidden] {
+  display: none;
+}
+
+.reservation-message-card {
+  width: min(440px, 100%);
+  border: 1px solid rgba(205, 161, 90, 0.42);
+  background:
+    linear-gradient(145deg, rgba(24, 19, 12, 0.98), rgba(8, 8, 7, 0.98)),
+    #0d0b08;
+  box-shadow: 0 28px 84px rgba(0, 0, 0, 0.68);
+  padding: clamp(28px, 6vw, 44px);
+  text-align: center;
+}
+
+.reservation-message-kicker {
+  margin: 0;
+  color: var(--gold);
+  font-size: 0.7rem;
+  font-weight: 900;
+  letter-spacing: 0.22em;
+  text-transform: uppercase;
+}
+
+.reservation-message-card h3 {
+  margin: 14px 0 0;
+  color: var(--champagne);
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: clamp(2rem, 6vw, 3.2rem);
+  font-weight: 500;
+  line-height: 0.96;
+}
+
+.reservation-message-card p:not(.reservation-message-kicker) {
+  margin: 18px 0 0;
+  color: rgba(247, 239, 224, 0.78);
+  font-size: 1rem;
+  line-height: 1.7;
+}
+
+.reservation-message-card .button {
+  margin: 26px auto 0;
+  min-width: 140px;
+  justify-content: center;
 }
 
 @media (max-width: 880px) {

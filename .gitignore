@@ -1,6 +1,7 @@
 .env
 email-settings.env
 reservations.db
+reservations.backup-*.db
 .DS_Store
 __pycache__/
 *.pyc

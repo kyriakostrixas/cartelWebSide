@@ -1,9 +1,71 @@
 const reservationForm = document.querySelector("#reservation-form");
 const reservationStatus = document.querySelector("#reservation-status");
+const reservationMessage = document.querySelector("#reservation-message");
+const reservationMessageTitle = document.querySelector("#reservation-message-title");
+const reservationMessageText = document.querySelector("#reservation-message-text");
+const reservationMessageOk = document.querySelector("#reservation-message-ok");
 const reservationDate = document.querySelector('#reservation-form input[name="date"]');
+const timeInput = document.querySelector('#reservation-form input[name="time"]');
+const timeDropdown = document.querySelector("[data-time-dropdown]");
+const timeTrigger = timeDropdown?.querySelector(".time-trigger");
+const timeMenu = timeDropdown?.querySelector(".time-menu");
+const timeOptions = timeDropdown ? [...timeDropdown.querySelectorAll(".time-option")] : [];
 
 if (reservationDate) {
   reservationDate.min = new Date().toISOString().slice(0, 10);
+}
+
+function setTimeMenuOpen(open) {
+  if (!timeDropdown || !timeTrigger || !timeMenu) return;
+  timeDropdown.classList.toggle("is-open", open);
+  timeTrigger.setAttribute("aria-expanded", String(open));
+  timeMenu.hidden = !open;
+}
+
+function resetTimeDropdown() {
+  if (!timeInput || !timeTrigger) return;
+  timeInput.value = "";
+  timeTrigger.textContent = "Choose time";
+  timeOptions.forEach((option) => {
+    option.classList.remove("is-selected");
+    option.setAttribute("aria-selected", "false");
+  });
+  setTimeMenuOpen(false);
+}
+
+if (timeDropdown && timeTrigger && timeInput) {
+  timeTrigger.addEventListener("click", () => {
+    setTimeMenuOpen(timeMenu?.hidden ?? true);
+  });
+
+  timeOptions.forEach((option) => {
+    option.setAttribute("aria-selected", "false");
+    option.addEventListener("click", () => {
+      const value = option.dataset.timeValue || "";
+      timeInput.value = value;
+      timeTrigger.textContent = value;
+      timeOptions.forEach((item) => {
+        const isSelected = item === option;
+        item.classList.toggle("is-selected", isSelected);
+        item.setAttribute("aria-selected", String(isSelected));
+      });
+      setTimeMenuOpen(false);
+      timeTrigger.focus();
+    });
+  });
+
+  document.addEventListener("click", (event) => {
+    if (!timeDropdown.contains(event.target)) {
+      setTimeMenuOpen(false);
+    }
+  });
+
+  document.addEventListener("keydown", (event) => {
+    if (event.key === "Escape") {
+      setTimeMenuOpen(false);
+      timeTrigger.focus();
+    }
+  });
 }
 
 function setReservationStatus(message, type = "") {
@@ -11,6 +73,37 @@ function setReservationStatus(message, type = "") {
   reservationStatus.textContent = message;
   reservationStatus.className = `form-status ${type}`.trim();
 }
+
+function showReservationMessage({ title, message, type = "success" }) {
+  if (!reservationMessage || !reservationMessageTitle || !reservationMessageText) {
+    setReservationStatus(message, type);
+    return;
+  }
+
+  reservationMessage.classList.toggle("error", type === "error");
+  reservationMessageTitle.textContent = title;
+  reservationMessageText.textContent = message;
+  reservationMessage.hidden = false;
+  reservationMessageOk?.focus();
+}
+
+function hideReservationMessage() {
+  if (!reservationMessage) return;
+  reservationMessage.hidden = true;
+}
+
+reservationMessageOk?.addEventListener("click", hideReservationMessage);
+reservationMessage?.addEventListener("click", (event) => {
+  if (event.target === reservationMessage) {
+    hideReservationMessage();
+  }
+});
+
+document.addEventListener("keydown", (event) => {
+  if (event.key === "Escape" && reservationMessage && !reservationMessage.hidden) {
+    hideReservationMessage();
+  }
+});
 
 function reservationPayload(form) {
   const data = new FormData(form);
@@ -32,6 +125,12 @@ if (reservationForm) {
 
     const submitButton = reservationForm.querySelector('button[type="submit"]');
     const payload = reservationPayload(reservationForm);
+
+    if (!payload.time) {
+      setReservationStatus("Please choose a reservation time.", "error");
+      timeTrigger?.focus();
+      return;
+    }
 
     if (!reservationForm.checkValidity()) {
       reservationForm.reportValidity();
@@ -57,23 +156,25 @@ if (reservationForm) {
       }
 
       reservationForm.reset();
+      resetTimeDropdown();
       reservationForm.querySelector('[name="guests"]').value = "2";
-      if (result.notification?.status === "sent") {
-        setReservationStatus(
-          "Reservation request received. Confirmation details have been sent by email.",
-          "success",
-        );
-      } else {
-        setReservationStatus(
-          "Reservation request received and saved. Email confirmation was not sent.",
-          "success",
-        );
-      }
+      setReservationStatus("", "");
+      showReservationMessage({
+        title: "Request received",
+        message:
+          "Your table request is now pending confirmation. Once Cartel confirms it, you will receive your confirmation email with all reservation details.",
+        type: "success",
+      });
     } catch (error) {
-      setReservationStatus(
-        "This form needs the reservation server running. Please try again in a moment.",
-        "error",
-      );
+      const message =
+        error.message && error.message !== "Failed to fetch"
+          ? error.message
+          : "This form needs the reservation server running. Please try again in a moment.";
+      showReservationMessage({
+        title: "Almost there",
+        message,
+        type: "error",
+      });
     } finally {
       submitButton.disabled = false;
     }

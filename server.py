@@ -21,6 +21,17 @@ DB_PATH = ROOT / "reservations.db"
 MANAGER_EMAIL = "kyriakos.10@live.com"
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 VALID_RESERVATION_STATUSES = {"pending", "confirmed", "cancelled"}
+ALLOWED_RESERVATION_TIMES = {
+    "18:00",
+    "18:30",
+    "19:00",
+    "19:30",
+    "20:00",
+    "20:30",
+    "21:00",
+    "21:30",
+    "22:00",
+}
 
 
 def load_env_files() -> None:
@@ -120,6 +131,36 @@ def clean_text(value: object, limit: int) -> str:
     return str(value or "").strip()[:limit]
 
 
+def normalize_phone(value: str) -> str:
+    return re.sub(r"\D+", "", value)
+
+
+def validate_reservation_time(value: str) -> None:
+    if value not in ALLOWED_RESERVATION_TIMES:
+        raise ValueError("Please choose a reservation time from 18:00 to 22:00.")
+
+
+def ensure_phone_is_available(phone: str, reservation_date: str) -> None:
+    normalized_phone = normalize_phone(phone)
+    if not normalized_phone:
+        return
+
+    with sqlite3.connect(DB_PATH) as connection:
+        connection.row_factory = sqlite3.Row
+        rows = connection.execute(
+            """
+            SELECT phone
+            FROM reservations
+            WHERE reservation_date = ?
+              AND status != 'cancelled'
+            """,
+            (reservation_date,),
+        ).fetchall()
+
+    if any(normalize_phone(row["phone"]) == normalized_phone for row in rows):
+        raise ValueError("This phone number already has a reservation for this date.")
+
+
 def validate_reservation(data: dict) -> dict:
     reservation = {
         "name": clean_text(data.get("name"), 120),
@@ -145,6 +186,7 @@ def validate_reservation(data: dict) -> dict:
         raise ValueError("Please choose a date.")
     if not reservation["time"]:
         raise ValueError("Please choose a time.")
+    validate_reservation_time(reservation["time"])
     if reservation["guests"] < 1:
         raise ValueError("Please enter at least 1 guest.")
 
@@ -259,6 +301,32 @@ def update_reservation_status(reservation_id: int, status: str) -> bool:
         return cursor.rowcount > 0
 
 
+def get_reservation(reservation_id: int) -> dict | None:
+    with sqlite3.connect(DB_PATH) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            """
+            SELECT
+                id, name, phone, email, reservation_date, reservation_time, guests,
+                notes, status, notification_status, arrived, arrival_previous_status,
+                booking_source, created_at
+            FROM reservations
+            WHERE id = ?
+            """,
+            (reservation_id,),
+        ).fetchone()
+
+    if row is None:
+        return None
+
+    item = dict(row)
+    item["date"] = item["reservation_date"]
+    item["time"] = item["reservation_time"]
+    item["display_date"] = european_date(item["reservation_date"])
+    item["arrived"] = bool(item["arrived"])
+    return item
+
+
 def update_reservation_arrival(reservation_id: int, arrived: bool) -> bool:
     with sqlite3.connect(DB_PATH) as connection:
         connection.row_factory = sqlite3.Row
@@ -303,6 +371,57 @@ def mark_notification(reservation_id: int, status: str) -> None:
             "UPDATE reservations SET notification_status = ? WHERE id = ?",
             (status, reservation_id),
         )
+
+
+def mark_latest_email_event(email_address: str, event: str) -> dict | None:
+    normalized_event = re.sub(r"[^a-z]", "", event.lower())
+    delivery_events = {"delivered"}
+    failure_events = {
+        "hardbounce",
+        "softbounce",
+        "invalid",
+        "blocked",
+        "error",
+        "spam",
+        "complaint",
+    }
+    if normalized_event not in delivery_events | failure_events:
+        return None
+
+    email_address = clean_text(email_address, 160).lower()
+    if not email_address:
+        return None
+
+    with sqlite3.connect(DB_PATH) as connection:
+        connection.row_factory = sqlite3.Row
+        row = connection.execute(
+            """
+            SELECT id
+            FROM reservations
+            WHERE lower(email) = ?
+              AND notification_status = 'sent'
+              AND booking_source != 'manual'
+            ORDER BY reservation_date DESC, reservation_time DESC, id DESC
+            LIMIT 1
+            """,
+            (email_address,),
+        ).fetchone()
+        if row is None:
+            return None
+        next_email_status = "delivered" if normalized_event in delivery_events else "failed"
+        next_status = "confirmed" if normalized_event in delivery_events else "pending"
+        connection.execute(
+            """
+            UPDATE reservations
+            SET notification_status = ?,
+                status = ?
+            WHERE id = ?
+            """,
+            (next_email_status, next_status, row["id"]),
+        )
+        reservation_id = int(row["id"])
+
+    return get_reservation(reservation_id)
 
 
 def european_date(value: str) -> str:
@@ -458,11 +577,17 @@ def build_statistics() -> dict:
     }
 
 
-def email_text_body(reservation: dict) -> str:
+def email_text_body(
+    reservation: dict,
+    *,
+    title: str = "Cartel reservation request received",
+    closing_title: str = "Your night at Cartel is waiting.",
+    closing_text: str = "Expect polished cocktails, warm service, and a beautiful evening on the Protaras strip.",
+) -> str:
     notes = reservation["notes"] or "No notes added."
     return "\n".join(
         [
-            "Cartel reservation request received",
+            title,
             "",
             f"Name: {reservation['name']}",
             f"Phone: {reservation['phone']}",
@@ -472,12 +597,19 @@ def email_text_body(reservation: dict) -> str:
             f"Guests: {reservation['guests']}",
             f"Notes: {notes}",
             "",
-            "Your night at Cartel is waiting. Expect polished cocktails, warm service, and a beautiful evening on the Protaras strip.",
+            f"{closing_title} {closing_text}",
         ]
     )
 
 
-def email_html_body(reservation: dict) -> str:
+def email_html_body(
+    reservation: dict,
+    *,
+    heading: str = "Cartel reservation",
+    intro: str = "Your reservation request has been received with the details below.",
+    closing_title: str = "Your night at Cartel is waiting.",
+    closing_text: str = "Expect polished cocktails, warm service, and a beautiful evening on the Protaras strip.",
+) -> str:
     notes = reservation["notes"] or "No notes added."
     details = [
         ("Name", reservation["name"]),
@@ -508,8 +640,8 @@ def email_html_body(reservation: dict) -> str:
             <tr>
               <td style="padding:34px 34px 22px;border-bottom:1px solid rgba(205,161,90,0.2);background:linear-gradient(135deg,#17120b,#070706);">
                 <div style="color:#cda15a;font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;">Cocktail Bar · Protaras</div>
-                <h1 style="margin:18px 0 0;color:#ead8b2;font-family:Georgia,'Times New Roman',serif;font-size:42px;line-height:1;font-weight:500;">Cartel reservation</h1>
-                <p style="margin:18px 0 0;color:rgba(247,239,224,0.72);font-size:16px;line-height:1.7;">Your reservation request has been received with the details below.</p>
+                <h1 style="margin:18px 0 0;color:#ead8b2;font-family:Georgia,'Times New Roman',serif;font-size:42px;line-height:1;font-weight:500;">{html.escape(heading)}</h1>
+                <p style="margin:18px 0 0;color:rgba(247,239,224,0.72);font-size:16px;line-height:1.7;">{html.escape(intro)}</p>
               </td>
             </tr>
             <tr>
@@ -521,8 +653,8 @@ def email_html_body(reservation: dict) -> str:
             </tr>
             <tr>
               <td style="padding:28px 34px 36px;">
-                <p style="margin:0;color:#ead8b2;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:1.25;">Your night at Cartel is waiting.</p>
-                <p style="margin:12px 0 0;color:rgba(247,239,224,0.72);font-size:16px;line-height:1.7;">Expect polished cocktails, warm service, and a beautiful evening on the Protaras strip.</p>
+                <p style="margin:0;color:#ead8b2;font-family:Georgia,'Times New Roman',serif;font-size:25px;line-height:1.25;">{html.escape(closing_title)}</p>
+                <p style="margin:12px 0 0;color:rgba(247,239,224,0.72);font-size:16px;line-height:1.7;">{html.escape(closing_text)}</p>
               </td>
             </tr>
           </table>
@@ -552,7 +684,40 @@ def build_email(
     return message
 
 
-def send_reservation_emails(reservation_id: int, reservation: dict) -> dict:
+def send_admin_reservation_email(reservation: dict) -> dict:
+    host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    username = os.getenv("SMTP_USERNAME", "")
+    password = os.getenv("SMTP_PASSWORD", "")
+    sender = os.getenv("SMTP_FROM", username)
+
+    if not all([host, username, password, sender]):
+        return {"sent": False, "status": "not_sent"}
+
+    text_body = email_text_body(reservation)
+    html_body = email_html_body(reservation)
+    message = build_email(
+        sender=sender,
+        recipient=MANAGER_EMAIL,
+        subject="Cartel reservation request",
+        text_body=text_body,
+        html_body=html_body,
+        reply_to=reservation["email"],
+    )
+
+    try:
+        with smtplib.SMTP(host, port, timeout=10) as smtp:
+            smtp.starttls()
+            smtp.login(username, password)
+            refused = smtp.send_message(message)
+            if refused:
+                raise smtplib.SMTPRecipientsRefused(refused)
+        return {"sent": True, "status": "sent"}
+    except (OSError, smtplib.SMTPException):
+        return {"sent": False, "status": "failed"}
+
+
+def send_customer_confirmation_email(reservation_id: int, reservation: dict) -> dict:
     host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
     port = int(os.getenv("SMTP_PORT", "587"))
     username = os.getenv("SMTP_USERNAME", "")
@@ -563,41 +728,40 @@ def send_reservation_emails(reservation_id: int, reservation: dict) -> dict:
         mark_notification(reservation_id, "not_sent")
         return {"sent": False, "status": "not_sent"}
 
-    text_body = email_text_body(reservation)
-    html_body = email_html_body(reservation)
-    subject = "Cartel reservation request"
-    messages = [
-        build_email(
-            sender=sender,
-            recipient=reservation["email"],
-            subject="Your Cartel reservation request",
-            text_body=text_body,
-            html_body=html_body,
-            reply_to=MANAGER_EMAIL,
-        ),
-        build_email(
-            sender=sender,
-            recipient=MANAGER_EMAIL,
-            subject=subject,
-            text_body=text_body,
-            html_body=html_body,
-            reply_to=reservation["email"],
-        ),
-    ]
+    text_body = email_text_body(
+        reservation,
+        title="Your Cartel reservation is confirmed",
+        closing_title="Your table is confirmed. The night is yours.",
+        closing_text="We are looking forward to welcoming you for signature cocktails, attentive service, and an unforgettable evening on the Protaras strip.",
+    )
+    html_body = email_html_body(
+        reservation,
+        heading="Reservation confirmed",
+        intro="Your Cartel reservation has been confirmed. Your table is ready with the details below.",
+        closing_title="Your table is confirmed. The night is yours.",
+        closing_text="We are looking forward to welcoming you for signature cocktails, attentive service, and an unforgettable evening on the Protaras strip.",
+    )
+    message = build_email(
+        sender=sender,
+        recipient=reservation["email"],
+        subject="Your Cartel reservation is confirmed",
+        text_body=text_body,
+        html_body=html_body,
+        reply_to=MANAGER_EMAIL,
+    )
 
     try:
         with smtplib.SMTP(host, port, timeout=10) as smtp:
             smtp.starttls()
             smtp.login(username, password)
-            for message in messages:
-                refused = smtp.send_message(message)
-                if refused:
-                    raise smtplib.SMTPRecipientsRefused(refused)
+            refused = smtp.send_message(message)
+            if refused:
+                raise smtplib.SMTPRecipientsRefused(refused)
         mark_notification(reservation_id, "sent")
         return {"sent": True, "status": "sent"}
     except (OSError, smtplib.SMTPException):
-        mark_notification(reservation_id, "failed")
-        return {"sent": False, "status": "failed"}
+        mark_notification(reservation_id, "not_sent")
+        return {"sent": False, "status": "not_sent"}
 
 
 def send_manual_admin_email(reservation: dict) -> dict:
@@ -672,6 +836,25 @@ class ReservationHandler(SimpleHTTPRequestHandler):
     def do_POST(self) -> None:
         path = urlparse(self.path).path
 
+        if path == "/api/email/brevo-webhook":
+            try:
+                data = self.read_json()
+                event = clean_text(
+                    data.get("event")
+                    or data.get("event_name")
+                    or data.get("eventType")
+                    or data.get("msg_status"),
+                    60,
+                )
+                email_address = clean_text(data.get("email") or data.get("recipient"), 160)
+                reservation = mark_latest_email_event(email_address, event)
+            except json.JSONDecodeError:
+                self.send_json(400, {"ok": False, "error": "Invalid request."})
+                return
+
+            self.send_json(200, {"ok": True, "reservation": reservation})
+            return
+
         if path == "/api/admin/login":
             try:
                 data = self.read_json()
@@ -708,7 +891,34 @@ class ReservationHandler(SimpleHTTPRequestHandler):
                 data = self.read_json()
                 reservation_id = int(data.get("id"))
                 status = clean_text(data.get("status"), 20)
-                updated = update_reservation_status(reservation_id, status)
+                force_confirm = bool(data.get("force_confirm"))
+                reservation = get_reservation(reservation_id)
+                if reservation is None:
+                    self.send_json(404, {"ok": False, "error": "Reservation not found."})
+                    return
+                notification = None
+                if (
+                    status == "confirmed"
+                    and reservation["booking_source"] != "manual"
+                    and reservation["notification_status"] != "sent"
+                    and not force_confirm
+                ):
+                    notification = send_customer_confirmation_email(reservation_id, reservation)
+                    if notification["status"] != "sent":
+                        failed_reservation = get_reservation(reservation_id) or reservation
+                        self.send_json(
+                            400,
+                            {
+                                "ok": False,
+                                "error": "Reservation was not confirmed because the customer confirmation email could not be sent.",
+                                "notification": notification,
+                                "reservation": failed_reservation,
+                            },
+                        )
+                        return
+                    updated = True
+                else:
+                    updated = update_reservation_status(reservation_id, status)
             except json.JSONDecodeError:
                 self.send_json(400, {"ok": False, "error": "Invalid request."})
                 return
@@ -719,7 +929,14 @@ class ReservationHandler(SimpleHTTPRequestHandler):
             if not updated:
                 self.send_json(404, {"ok": False, "error": "Reservation not found."})
                 return
-            self.send_json(200, {"ok": True})
+            self.send_json(
+                200,
+                {
+                    "ok": True,
+                    "notification": notification,
+                    "reservation": get_reservation(reservation_id),
+                },
+            )
             return
 
         if path == "/api/admin/reservations/arrival":
@@ -749,6 +966,7 @@ class ReservationHandler(SimpleHTTPRequestHandler):
             try:
                 data = self.read_json()
                 reservation = validate_manual_reservation(data)
+                ensure_phone_is_available(reservation["phone"], reservation["date"])
                 reservation_id = save_reservation(
                     reservation,
                     status="confirmed",
@@ -780,10 +998,13 @@ class ReservationHandler(SimpleHTTPRequestHandler):
         try:
             data = self.read_json()
             reservation = validate_reservation(data)
-            reservation_id = save_reservation(reservation)
-            notification = send_reservation_emails(reservation_id, reservation)
-            reservation_status = "confirmed" if notification["status"] == "sent" else "pending"
-            update_reservation_status(reservation_id, reservation_status)
+            ensure_phone_is_available(reservation["phone"], reservation["date"])
+            reservation_id = save_reservation(
+                reservation,
+                status="pending",
+                notification_status="not_sent",
+            )
+            notification = send_admin_reservation_email(reservation)
         except json.JSONDecodeError:
             self.send_json(400, {"ok": False, "error": "Invalid request."})
             return

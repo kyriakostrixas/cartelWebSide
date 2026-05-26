@@ -8,8 +8,8 @@
       content="Cartel Cocktail Bar in Protaras: signature cocktails, late-night music, and a polished stop on the Protaras strip."
     />
     <title>Cartel Cocktail Bar Protaras</title>
-    <link rel="stylesheet" href="styles.css?v=reservation-system" />
-    <script src="app.js?v=reservation-system" defer></script>
+    <link rel="stylesheet" href="styles.css?v=custom-time-menu" />
+    <script src="app.js?v=reservation-message-modal" defer></script>
   </head>
   <body>
     <header class="site-header">
@@ -231,7 +231,28 @@
             </label>
             <label>
               Time
-              <input name="time" type="time" required />
+              <input name="time" type="hidden" required />
+              <div class="time-dropdown" data-time-dropdown>
+                <button
+                  class="time-trigger"
+                  type="button"
+                  aria-expanded="false"
+                  aria-haspopup="listbox"
+                >
+                  Choose time
+                </button>
+                <div class="time-menu" role="listbox" hidden>
+                  <button class="time-option" type="button" role="option" data-time-value="18:00">18:00</button>
+                  <button class="time-option" type="button" role="option" data-time-value="18:30">18:30</button>
+                  <button class="time-option" type="button" role="option" data-time-value="19:00">19:00</button>
+                  <button class="time-option" type="button" role="option" data-time-value="19:30">19:30</button>
+                  <button class="time-option" type="button" role="option" data-time-value="20:00">20:00</button>
+                  <button class="time-option" type="button" role="option" data-time-value="20:30">20:30</button>
+                  <button class="time-option" type="button" role="option" data-time-value="21:00">21:00</button>
+                  <button class="time-option" type="button" role="option" data-time-value="21:30">21:30</button>
+                  <button class="time-option" type="button" role="option" data-time-value="22:00">22:00</button>
+                </div>
+              </div>
             </label>
           </div>
           <label>
@@ -254,6 +275,15 @@
         </form>
       </div>
     </section>
+
+    <div class="reservation-message" id="reservation-message" role="dialog" aria-modal="true" aria-labelledby="reservation-message-title" hidden>
+      <div class="reservation-message-card">
+        <p class="reservation-message-kicker">Cartel Reservations</p>
+        <h3 id="reservation-message-title">Request received</h3>
+        <p id="reservation-message-text"></p>
+        <button class="button primary" type="button" id="reservation-message-ok">OK</button>
+      </div>
+    </div>
 
     <section class="menu-viewer" id="menu-viewer" aria-labelledby="menu-viewer-title">
       <a class="menu-viewer-backdrop" href="#top" aria-label="Close cocktail menu"></a>
