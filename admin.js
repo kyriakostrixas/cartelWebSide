@@ -19,10 +19,15 @@ const clearFilters = document.querySelector("#clear-filters");
 const refreshButton = document.querySelector("#refresh-button");
 const logoutButton = document.querySelector("#logout-button");
 const statisticsButton = document.querySelector("#statistics-button");
+const cocktailsButton = document.querySelector("#cocktails-button");
 const reservationsButton = document.querySelector("#reservations-button");
 const reservationsView = document.querySelector("#reservations-view");
 const statisticsView = document.querySelector("#statistics-view");
+const cocktailsView = document.querySelector("#cocktails-view");
 const statisticsList = document.querySelector("#statistics-list");
+const cocktailEditor = document.querySelector("#cocktail-editor");
+const cocktailEditorGrid = document.querySelector("#cocktail-editor-grid");
+const cocktailStatus = document.querySelector("#cocktail-status");
 const manualOpen = document.querySelector("#manual-open");
 const manualModal = document.querySelector("#manual-modal");
 const manualForm = document.querySelector("#manual-form");
@@ -123,14 +128,27 @@ function showDashboard() {
 function showReservationsView() {
   reservationsView.hidden = false;
   statisticsView.hidden = true;
+  cocktailsView.hidden = true;
   statisticsButton.hidden = false;
+  cocktailsButton.hidden = false;
   reservationsButton.hidden = true;
 }
 
 function showStatisticsView() {
   reservationsView.hidden = true;
   statisticsView.hidden = false;
+  cocktailsView.hidden = true;
   statisticsButton.hidden = true;
+  cocktailsButton.hidden = false;
+  reservationsButton.hidden = false;
+}
+
+function showCocktailsView() {
+  reservationsView.hidden = true;
+  statisticsView.hidden = true;
+  cocktailsView.hidden = false;
+  statisticsButton.hidden = false;
+  cocktailsButton.hidden = true;
   reservationsButton.hidden = false;
 }
 
@@ -157,6 +175,49 @@ function manualPayload(form) {
     guests: Number(data.get("guests") || 0),
     notes: String(data.get("notes") || "").trim(),
   };
+}
+
+function cocktailCardTemplate(item, index) {
+  return `
+    <article class="cocktail-editor-card" data-cocktail-editor-card="${index}">
+      <img src="${escapeHtml(item.image)}" alt="${escapeHtml(item.alt || item.title || "Cartel cocktail")}" />
+      <h3>Picture ${index + 1}</h3>
+      <label class="upload-zone">
+        <strong>Choose image</strong>
+        <span>JPG, PNG, or WebP</span>
+        <input name="image_${index}" type="file" accept="image/png,image/jpeg,image/webp" />
+      </label>
+      <label>
+        Span text
+        <input name="eyebrow_${index}" type="text" value="${escapeHtml(item.eyebrow)}" required />
+      </label>
+      <label>
+        Heading
+        <input name="title_${index}" type="text" value="${escapeHtml(item.title)}" required />
+      </label>
+    </article>
+  `;
+}
+
+function renderCocktailEditor(items) {
+  cocktailEditorGrid.innerHTML = items.map(cocktailCardTemplate).join("");
+}
+
+async function loadCocktailEditor() {
+  const response = await fetch("/api/admin/cocktails", {
+    headers: adminHeaders(),
+  });
+  if (response.status === 401) {
+    showLogin("Please sign in again.");
+    return;
+  }
+  const result = await response.json();
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || "Could not load cocktail cards.");
+  }
+  renderCocktailEditor(result.cocktails || []);
+  cocktailStatus.textContent = "";
+  showCocktailsView();
 }
 
 function escapeHtml(value) {
@@ -625,6 +686,27 @@ async function createManualReservation(payload) {
   return true;
 }
 
+async function saveCocktailEditor() {
+  const response = await fetch("/api/admin/cocktails", {
+    method: "POST",
+    headers: adminHeaders(),
+    body: new FormData(cocktailEditor),
+  });
+  const result = await response.json();
+
+  if (response.status === 401) {
+    showLogin("Please sign in again.");
+    return false;
+  }
+
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || "Could not save cocktail cards.");
+  }
+
+  renderCocktailEditor(result.cocktails || []);
+  return true;
+}
+
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   loginStatus.textContent = "";
@@ -678,6 +760,35 @@ manualForm.addEventListener("submit", async (event) => {
 manualOpen.addEventListener("click", openManualForm);
 manualCloseButtons.forEach((button) => {
   button.addEventListener("click", closeManualForm);
+});
+
+cocktailEditorGrid.addEventListener("change", (event) => {
+  const input = event.target.closest('input[type="file"]');
+  if (!input || !input.files?.[0]) return;
+
+  const card = input.closest(".cocktail-editor-card");
+  const preview = card?.querySelector("img");
+  if (preview) {
+    preview.src = URL.createObjectURL(input.files[0]);
+  }
+});
+
+cocktailEditor.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  cocktailStatus.textContent = "Saving cocktail cards...";
+
+  try {
+    const saved = await saveCocktailEditor();
+    if (!saved) return;
+    cocktailStatus.textContent = "Cocktail cards saved.";
+    await showAdminMessage({
+      kicker: "Cocktail cards",
+      title: "Saved",
+      message: "The website cocktail section has been updated.",
+    });
+  } catch (error) {
+    cocktailStatus.textContent = error.message || "Could not save cocktail cards.";
+  }
 });
 
 reservationsList.addEventListener("click", async (event) => {
@@ -772,6 +883,7 @@ refreshButton.addEventListener("click", async () => {
 });
 
 statisticsButton.addEventListener("click", loadStatistics);
+cocktailsButton.addEventListener("click", loadCocktailEditor);
 reservationsButton.addEventListener("click", () => {
   showReservationsView();
   renderReservations();

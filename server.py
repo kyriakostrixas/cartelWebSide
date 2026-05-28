@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import datetime as dt
 import email.message
+import cgi
 import hashlib
 import hmac
 import html
@@ -18,6 +19,8 @@ from urllib.parse import urlparse
 
 ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "reservations.db"
+COCKTAILS_CONFIG_PATH = ROOT / "assets" / "cartel" / "cocktails.json"
+COCKTAIL_UPLOAD_DIR = ROOT / "assets" / "cartel" / "uploads"
 MANAGER_EMAIL = "kyriakos.10@live.com"
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 VALID_RESERVATION_STATUSES = {"pending", "confirmed", "cancelled"}
@@ -32,6 +35,26 @@ ALLOWED_RESERVATION_TIMES = {
     "21:30",
     "22:00",
 }
+DEFAULT_COCKTAILS = [
+    {
+        "image": "assets/cartel/ecobar.jpg",
+        "alt": "Cartel cocktail being poured at the bar",
+        "eyebrow": "Signature Pour",
+        "title": "Escobar serve",
+    },
+    {
+        "image": "assets/cartel/muchroom.jpeg",
+        "alt": "Cartel mushroom cocktail with rosemary garnish",
+        "eyebrow": "Forest Ritual",
+        "title": "Mushroom cocktail",
+    },
+    {
+        "image": "assets/cartel/doctor.jpg",
+        "alt": "Cartel doctor cocktail served with a drip presentation",
+        "eyebrow": "Doctor's Order",
+        "title": "Drip therapy serve",
+    },
+]
 
 
 def load_env_files() -> None:
@@ -129,6 +152,59 @@ def is_admin_authenticated(headers) -> bool:
 
 def clean_text(value: object, limit: int) -> str:
     return str(value or "").strip()[:limit]
+
+
+def cocktail_items() -> list[dict]:
+    if COCKTAILS_CONFIG_PATH.exists():
+        try:
+            data = json.loads(COCKTAILS_CONFIG_PATH.read_text(encoding="utf-8"))
+            items = data.get("cocktails", data)
+        except (json.JSONDecodeError, OSError):
+            items = DEFAULT_COCKTAILS
+    else:
+        items = DEFAULT_COCKTAILS
+
+    normalized = []
+    for index, default in enumerate(DEFAULT_COCKTAILS):
+        item = items[index] if isinstance(items, list) and index < len(items) else {}
+        normalized.append(
+            {
+                "image": clean_text(item.get("image") or default["image"], 240),
+                "alt": clean_text(item.get("alt") or default["alt"], 180),
+                "eyebrow": clean_text(item.get("eyebrow") or default["eyebrow"], 80),
+                "title": clean_text(item.get("title") or default["title"], 120),
+            }
+        )
+    return normalized
+
+
+def save_cocktail_items(items: list[dict]) -> None:
+    COCKTAILS_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    COCKTAILS_CONFIG_PATH.write_text(
+        json.dumps({"cocktails": items}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def uploaded_cocktail_path(file_item, index: int) -> str | None:
+    if not getattr(file_item, "filename", ""):
+        return None
+
+    source_name = Path(file_item.filename).name
+    extension = Path(source_name).suffix.lower()
+    if extension not in {".jpg", ".jpeg", ".png", ".webp"}:
+        raise ValueError("Please upload JPG, PNG, or WebP images only.")
+
+    COCKTAIL_UPLOAD_DIR.mkdir(parents=True, exist_ok=True)
+    filename = f"cocktail-{index + 1}-{dt.datetime.now().strftime('%Y%m%d%H%M%S')}{extension}"
+    target = COCKTAIL_UPLOAD_DIR / filename
+    data = file_item.file.read()
+    if not data:
+        return None
+    if len(data) > 8 * 1024 * 1024:
+        raise ValueError("Please upload images smaller than 8MB.")
+    target.write_bytes(data)
+    return f"assets/cartel/uploads/{filename}"
 
 
 def normalize_phone(value: str) -> str:
@@ -991,6 +1067,43 @@ class ReservationHandler(SimpleHTTPRequestHandler):
             )
             return
 
+        if path == "/api/admin/cocktails":
+            if not self.require_admin():
+                return
+            try:
+                form = cgi.FieldStorage(
+                    fp=self.rfile,
+                    headers=self.headers,
+                    environ={
+                        "REQUEST_METHOD": "POST",
+                        "CONTENT_TYPE": self.headers.get("Content-Type", ""),
+                    },
+                    keep_blank_values=True,
+                )
+                items = cocktail_items()
+                for index, item in enumerate(items):
+                    item["eyebrow"] = clean_text(
+                        form.getfirst(f"eyebrow_{index}", item["eyebrow"]),
+                        80,
+                    )
+                    item["title"] = clean_text(
+                        form.getfirst(f"title_{index}", item["title"]),
+                        120,
+                    )
+                    upload = form[f"image_{index}"] if f"image_{index}" in form else None
+                    if upload is not None:
+                        uploaded_path = uploaded_cocktail_path(upload, index)
+                        if uploaded_path:
+                            item["image"] = uploaded_path
+                            item["alt"] = f"Cartel cocktail image {index + 1}"
+                save_cocktail_items(items)
+            except ValueError as error:
+                self.send_json(400, {"ok": False, "error": str(error)})
+                return
+
+            self.send_json(200, {"ok": True, "cocktails": items})
+            return
+
         if path != "/api/reservations":
             self.send_json(404, {"ok": False, "error": "Not found"})
             return
@@ -1046,6 +1159,16 @@ class ReservationHandler(SimpleHTTPRequestHandler):
             if not self.require_admin():
                 return
             self.send_json(200, {"ok": True, "statistics": build_statistics()})
+            return
+
+        if path == "/api/site/cocktails":
+            self.send_json(200, {"ok": True, "cocktails": cocktail_items()})
+            return
+
+        if path == "/api/admin/cocktails":
+            if not self.require_admin():
+                return
+            self.send_json(200, {"ok": True, "cocktails": cocktail_items()})
             return
 
         super().do_GET()

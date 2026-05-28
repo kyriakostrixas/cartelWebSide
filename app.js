@@ -10,6 +10,7 @@ const timeDropdown = document.querySelector("[data-time-dropdown]");
 const timeTrigger = timeDropdown?.querySelector(".time-trigger");
 const timeMenu = timeDropdown?.querySelector(".time-menu");
 const timeOptions = timeDropdown ? [...timeDropdown.querySelectorAll(".time-option")] : [];
+const cocktailCards = [...document.querySelectorAll("[data-cocktail-card]")];
 
 if (reservationDate) {
   reservationDate.min = new Date().toISOString().slice(0, 10);
@@ -104,6 +105,35 @@ document.addEventListener("keydown", (event) => {
     hideReservationMessage();
   }
 });
+
+async function loadCocktailCards() {
+  if (!cocktailCards.length) return;
+
+  try {
+    const response = await fetch("/api/site/cocktails");
+    const result = await response.json();
+    if (!response.ok || !result.ok) return;
+
+    cocktailCards.forEach((card, index) => {
+      const item = result.cocktails?.[index];
+      if (!item) return;
+
+      const image = card.querySelector("[data-cocktail-image]");
+      const eyebrow = card.querySelector("[data-cocktail-eyebrow]");
+      const title = card.querySelector("[data-cocktail-title]");
+      if (image && item.image) {
+        image.src = item.image;
+        image.alt = item.alt || item.title || "Cartel cocktail";
+      }
+      if (eyebrow) eyebrow.textContent = item.eyebrow || "";
+      if (title) title.textContent = item.title || "";
+    });
+  } catch (error) {
+    // Keep the default static cards if the server is unavailable.
+  }
+}
+
+loadCocktailCards();
 
 function reservationPayload(form) {
   const data = new FormData(form);

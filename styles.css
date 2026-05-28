@@ -61,7 +61,7 @@ img {
 .brand {
   display: inline-flex;
   align-items: center;
-  gap: 12px;
+  gap: 22px 12px;
   width: fit-content;
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1.22rem;
@@ -209,7 +209,7 @@ p {
 .visit-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 12px;
+  gap: 64px 12px;
   margin-top: 30px;
 }
 
@@ -402,8 +402,8 @@ p {
   position: relative;
   display: grid;
   grid-template-columns: minmax(0, 1.18fr) minmax(280px, 0.82fr);
-  grid-template-rows: auto 1fr 1fr;
-  gap: 0;
+  grid-template-rows: auto 420px 420px;
+  gap: 24px 12px;
   padding: clamp(82px, 10vw, 126px) 0;
   align-items: stretch;
   border-bottom: 1px solid rgba(205, 161, 90, 0.14);
@@ -424,6 +424,11 @@ p {
 .section-heading h2 {
   margin: clamp(36px, 5vw, 72px) 0 0;
   font-size: clamp(2.9rem, 5vw, 5.8rem);
+}
+
+.section-heading h2 + p {
+  max-width: 460px;
+  margin-top: 26px;
 }
 
 .section-heading p:last-child {
@@ -453,7 +458,8 @@ p {
 
 .drink-card {
   position: relative;
-  min-height: 330px;
+  height: 100%;
+  min-height: 0;
   overflow: hidden;
   border: 1px solid rgba(205, 161, 90, 0.2);
   background: var(--panel);
@@ -462,17 +468,17 @@ p {
 .drink-card.large {
   grid-column: 1;
   grid-row: 2 / span 2;
-  min-height: 680px;
+  height: calc(100% - 38px);
   margin-top: 38px;
 }
 
 .drink-card:not(.large) {
   grid-column: 2;
-  min-height: 340px;
 }
 
 .drink-card:nth-of-type(2) {
   grid-row: 2;
+  height: calc(100% - 38px);
   margin-top: 38px;
 }
 
@@ -510,11 +516,24 @@ p {
   padding: clamp(20px, 4vw, 34px);
 }
 
+.drink-card:not(.large) div {
+  padding: 22px 28px 30px;
+}
+
 .drink-card p {
   margin-bottom: 0;
 }
 
 @media (min-width: 881px) {
+  .drink-card img {
+    object-fit: fill;
+    background: transparent;
+  }
+
+  .drink-card:nth-of-type(3) img {
+    object-position: center;
+  }
+
   .drink-card h3 {
     max-width: 360px;
   }
@@ -625,12 +644,34 @@ p {
 }
 
 .visit {
+  position: relative;
   display: grid;
   grid-template-columns: minmax(0, 0.92fr) minmax(320px, 0.72fr);
   gap: clamp(28px, 6vw, 80px);
   align-items: center;
   padding: clamp(70px, 11vw, 130px) 0;
-  border-top: 1px solid var(--line);
+  border-top: 0;
+  border-bottom: 0;
+}
+
+.visit::before,
+.visit::after {
+  content: "";
+  position: absolute;
+  right: 0;
+  left: 0;
+  height: 1px;
+  background: rgba(205, 161, 90, 0.36);
+  box-shadow: 0 0 18px rgba(205, 161, 90, 0.12);
+  pointer-events: none;
+}
+
+.visit::before {
+  top: clamp(22px, 4vw, 42px);
+}
+
+.visit::after {
+  bottom: clamp(22px, 4vw, 42px);
 }
 
 .visit-panel {
@@ -1079,7 +1120,7 @@ p {
     margin-bottom: 48px;
     overflow: hidden;
     border: 1px solid rgba(205, 161, 90, 0.22);
-    background: rgba(7, 7, 6, 0.9);
+    background: #000;
   }
 
   .intro-section {
@@ -1161,6 +1202,10 @@ p {
     border-right: 0;
   }
 
+  .ticker span:nth-child(-n + 2) {
+    border-bottom: 1px solid var(--line);
+  }
+
   .ticker span {
     min-height: 68px;
   }
@@ -1168,12 +1213,15 @@ p {
   .drink-card,
   .drink-card.large {
     display: block;
+    height: auto;
     min-height: 0;
     border: 0;
     border-bottom: 1px solid rgba(205, 161, 90, 0.18);
-    background:
-      radial-gradient(circle at 50% 30%, rgba(205, 161, 90, 0.18), transparent 54%),
-      #130f0a;
+    background: #000;
+  }
+
+  .section-heading + .drink-card {
+    border-top: 1px solid rgba(205, 161, 90, 0.22);
   }
 
   .drink-card:last-of-type {
@@ -1196,23 +1244,24 @@ p {
     width: 100%;
     height: auto;
     aspect-ratio: 1 / 1;
-    object-fit: contain;
-    background:
-      linear-gradient(135deg, rgba(205, 161, 90, 0.18), rgba(19, 15, 10, 0.84) 46%),
-      #130f0a;
+    object-fit: fill;
+    background-color: transparent;
   }
 
   .drink-card::after {
     background:
-      linear-gradient(0deg, rgba(7, 7, 6, 0.88), transparent 58%),
+      linear-gradient(180deg, rgba(7, 7, 6, 0.88), transparent 46%),
+      linear-gradient(0deg, rgba(7, 7, 6, 0.62), transparent 52%),
       linear-gradient(180deg, rgba(7, 7, 6, 0.12), transparent 42%);
   }
 
   .drink-card div {
-    position: relative;
+    position: absolute;
+    top: 0;
+    bottom: auto;
     display: block;
-    border-top: 1px solid rgba(205, 161, 90, 0.16);
-    background: rgba(7, 7, 6, 0.9);
+    border-top: 0;
+    background: transparent;
   }
 
   .drink-card:not(:last-of-type) div {
@@ -1303,6 +1352,11 @@ p {
 
   .ticker span {
     border-right: 0;
+    border-bottom: 1px solid var(--line);
+  }
+
+  .ticker span:last-child {
+    border-bottom: 0;
   }
 
   .events-section {

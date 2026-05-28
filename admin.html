@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cartel Reservations Admin</title>
-    <link rel="stylesheet" href="admin.css?v=admin-confirm-dialog" />
-    <script src="admin.js?v=delivery-confirm-flow" defer></script>
+    <link rel="stylesheet" href="admin.css?v=cocktail-original-preview" />
+    <script src="admin.js?v=cocktail-editor" defer></script>
   </head>
   <body>
     <main class="admin-shell">
@@ -34,6 +34,7 @@
           <div class="header-actions">
             <a href="/" class="ghost-button">Website</a>
             <button id="statistics-button" type="button" class="ghost-button">Statistics</button>
+            <button id="cocktails-button" type="button" class="ghost-button">Edit cocktails section</button>
             <button id="reservations-button" type="button" class="ghost-button" hidden>
               Reservations
             </button>
@@ -113,6 +114,20 @@
             <h2>Statistics</h2>
           </div>
           <div class="statistics-list" id="statistics-list"></div>
+        </section>
+
+        <section class="cocktails-view" id="cocktails-view" hidden>
+          <div class="panel-heading">
+            <h2>Cocktail Cards</h2>
+            <p>Update the three images and labels shown on the website cocktail section.</p>
+          </div>
+          <form class="cocktail-editor" id="cocktail-editor">
+            <div class="cocktail-editor-grid" id="cocktail-editor-grid"></div>
+            <div class="manual-actions">
+              <button type="submit">Save Cocktail Cards</button>
+              <p class="status-message" id="cocktail-status" role="status" aria-live="polite"></p>
+            </div>
+          </form>
         </section>
 
         <section class="manual-modal" id="manual-modal" hidden>

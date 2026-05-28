@@ -1,0 +1,22 @@
+{
+  "cocktails": [
+    {
+      "image": "assets/cartel/uploads/cocktail-1-20260528151451.jpg",
+      "alt": "Cartel cocktail image 1",
+      "eyebrow": "Semi Sweet",
+      "title": "The Revovler"
+    },
+    {
+      "image": "assets/cartel/uploads/cocktail-2-20260528151548.jpg",
+      "alt": "Cartel cocktail image 2",
+      "eyebrow": "Glamorous",
+      "title": "Cartel Number 5"
+    },
+    {
+      "image": "assets/cartel/uploads/cocktail-3-20260528165708.jpg",
+      "alt": "Cartel cocktail image 3",
+      "eyebrow": "Fruity",
+      "title": "Shop Lift"
+    }
+  ]
+}
