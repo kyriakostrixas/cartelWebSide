@@ -853,6 +853,7 @@ p {
   text-transform: uppercase;
 }
 
+.email-gate,
 .reservation-form {
   display: grid;
   align-content: center;
@@ -860,6 +861,30 @@ p {
   padding: clamp(24px, 4vw, 44px);
 }
 
+.email-gate[hidden],
+.reservation-form[hidden] {
+  display: none;
+}
+
+.email-gate h3 {
+  max-width: 9ch;
+  color: var(--champagne);
+  font-family: var(--serif);
+  font-size: clamp(2.2rem, 5.4vw, 4rem);
+  font-weight: 500;
+  letter-spacing: 0;
+  line-height: 0.95;
+  margin: 0;
+}
+
+.email-gate p {
+  max-width: 36rem;
+  color: rgba(247, 239, 224, 0.7);
+  line-height: 1.7;
+  margin: 0;
+}
+
+.email-gate label,
 .reservation-form label {
   display: grid;
   gap: 8px;
@@ -870,6 +895,7 @@ p {
   text-transform: uppercase;
 }
 
+.email-gate input,
 .reservation-form input,
 .reservation-form select,
 .reservation-form textarea {
@@ -971,6 +997,7 @@ p {
   outline: 0;
 }
 
+.email-gate input:focus,
 .reservation-form input:focus,
 .reservation-form select:focus,
 .reservation-form textarea:focus {
@@ -982,6 +1009,31 @@ p {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: 14px;
+}
+
+.email-verification {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) auto;
+  gap: 12px;
+  align-items: end;
+}
+
+.verify-email-button {
+  min-height: 51px;
+  border: 1px solid rgba(205, 161, 90, 0.42);
+  background: rgba(205, 161, 90, 0.1);
+  color: var(--champagne);
+  cursor: pointer;
+  font-size: 0.74rem;
+  font-weight: 800;
+  letter-spacing: 0.14em;
+  padding: 0 18px;
+  text-transform: uppercase;
+}
+
+.verify-email-button:disabled {
+  cursor: wait;
+  opacity: 0.62;
 }
 
 .form-actions {
@@ -1385,6 +1437,10 @@ p {
   }
 
   .form-row {
+    grid-template-columns: 1fr;
+  }
+
+  .email-verification {
     grid-template-columns: 1fr;
   }
 

@@ -60,19 +60,23 @@ You can also use a hidden `.env` file if you prefer. If both files exist,
 
 ## Brevo Delivery And Bounce Alerts
 
-To confirm reservations only after Brevo reports that the customer received
-the confirmation email, configure a Brevo transactional webhook to call this URL
-after the website is deployed:
+The website keeps the admin panel simple: once the admin confirms a reservation
+and Brevo accepts the confirmation email, the admin panel shows the email status
+as sent.
+
+If Brevo later reports that the customer email bounced or was blocked, the app
+sends a private warning email to the admin with the reservation details and asks
+the admin to call the customer by phone. To make those real Brevo delivery events
+work after the website is deployed, configure a Brevo transactional webhook to
+call this public URL:
 
 ```text
 https://your-domain.com/api/email/brevo-webhook
 ```
 
-Enable delivered, hard bounce, soft bounce, invalid email, blocked, error, spam,
-and complaint events. When Brevo reports delivered, the admin panel will mark
-the reservation as confirmed. When Brevo reports a failure, the admin panel will
-mark the email status as failed/bounced and show a popup with the customer name
-and phone number while the admin page is open.
+Enable hard bounce, soft bounce, invalid email, blocked, error, spam, and
+complaint events. Localhost cannot receive real Brevo webhook events, so this
+part only works automatically when the site has a public domain.
 
 ## Admin Dashboard
 

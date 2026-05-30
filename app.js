@@ -5,6 +5,12 @@ const reservationMessageTitle = document.querySelector("#reservation-message-tit
 const reservationMessageText = document.querySelector("#reservation-message-text");
 const reservationMessageOk = document.querySelector("#reservation-message-ok");
 const reservationDate = document.querySelector('#reservation-form input[name="date"]');
+const emailGate = document.querySelector("#email-gate");
+const verificationEmail = document.querySelector("#verification-email");
+const verificationCode = document.querySelector("#verification-code");
+const verificationStatus = document.querySelector("#verification-status");
+const verifyEmailButton = document.querySelector("#verify-email-button");
+const continueReservationButton = document.querySelector("#continue-reservation-button");
 const timeInput = document.querySelector('#reservation-form input[name="time"]');
 const timeDropdown = document.querySelector("[data-time-dropdown]");
 const timeTrigger = timeDropdown?.querySelector(".time-trigger");
@@ -75,6 +81,12 @@ function setReservationStatus(message, type = "") {
   reservationStatus.className = `form-status ${type}`.trim();
 }
 
+function setVerificationStatus(message, type = "") {
+  if (!verificationStatus) return;
+  verificationStatus.textContent = message;
+  verificationStatus.className = `form-status ${type}`.trim();
+}
+
 function showReservationMessage({ title, message, type = "success" }) {
   if (!reservationMessage || !reservationMessageTitle || !reservationMessageText) {
     setReservationStatus(message, type);
@@ -142,12 +154,152 @@ function reservationPayload(form) {
     name: String(data.get("name") || "").trim(),
     phone: String(data.get("phone") || "").trim(),
     email: String(data.get("email") || "").trim(),
+    email_code: String(data.get("email_code") || "").trim(),
     date: String(data.get("date") || "").trim(),
     time: String(data.get("time") || "").trim(),
     guests: Number(data.get("guests") || 0),
     notes: String(data.get("notes") || "").trim(),
   };
 }
+
+const commonEmailDomainFixes = {
+  "gmai.com": "gmail.com",
+  "gmial.com": "gmail.com",
+  "gmail.con": "gmail.com",
+  "hotmial.com": "hotmail.com",
+  "hotmai.com": "hotmail.com",
+  "hotmail.con": "hotmail.com",
+  "outlok.com": "outlook.com",
+  "outlook.con": "outlook.com",
+  "live.con": "live.com",
+  "yaho.com": "yahoo.com",
+  "yahoo.con": "yahoo.com",
+  "icloud.con": "icloud.com",
+};
+
+function obviousEmailTypo(email) {
+  const domain = String(email || "").split("@").pop()?.toLowerCase();
+  return commonEmailDomainFixes[domain] || "";
+}
+
+async function requestEmailVerificationCode() {
+  if (!verificationEmail || !verifyEmailButton) return;
+  const email = String(verificationEmail.value || "").trim();
+
+  if (!verificationEmail.checkValidity()) {
+    verificationEmail.reportValidity();
+    return;
+  }
+
+  const suggestedDomain = obviousEmailTypo(email);
+  if (suggestedDomain) {
+    showReservationMessage({
+      title: "Check your email",
+      message: `Please check your email address. Did you mean ${suggestedDomain}?`,
+      type: "error",
+    });
+    verificationEmail.focus();
+    return;
+  }
+
+  verifyEmailButton.disabled = true;
+  verifyEmailButton.textContent = "Sending...";
+  setVerificationStatus("Sending your email verification code...");
+
+  try {
+    const response = await fetch("/api/email-verification", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email }),
+    });
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || "Could not send the verification code.");
+    }
+
+    setVerificationStatus("Verification code sent. Please check your email.", "success");
+    showReservationMessage({
+      title: "Check your email",
+      message: "We sent you a 6-digit code. Enter it here to unlock the reservation details.",
+    });
+    verificationCode?.focus();
+  } catch (error) {
+    showReservationMessage({
+      title: "Check your email",
+      message: error.message || "Could not send the verification code. Please try again.",
+      type: "error",
+    });
+  } finally {
+    verifyEmailButton.disabled = false;
+    verifyEmailButton.textContent = "Send code";
+  }
+}
+
+verifyEmailButton?.addEventListener("click", requestEmailVerificationCode);
+
+async function continueToReservationDetails() {
+  if (!reservationForm || !emailGate || !verificationEmail || !verificationCode || !continueReservationButton) return;
+  const email = String(verificationEmail.value || "").trim();
+  const code = String(verificationCode.value || "").trim();
+
+  if (!verificationEmail.checkValidity()) {
+    verificationEmail.reportValidity();
+    return;
+  }
+
+  if (!code) {
+    setVerificationStatus("Please enter the 6-digit code from your email.", "error");
+    verificationCode.focus();
+    return;
+  }
+
+  continueReservationButton.disabled = true;
+  setVerificationStatus("Checking your code...");
+
+  try {
+    const response = await fetch("/api/email-verification/check", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+      },
+      body: JSON.stringify({ email, code }),
+    });
+    const result = await response.json();
+
+    if (!response.ok || !result.ok) {
+      throw new Error(result.error || "The verification code is not correct.");
+    }
+
+    reservationForm.querySelector('[name="email"]').value = email;
+    reservationForm.querySelector('[name="email_code"]').value = code;
+    setVerificationStatus("", "");
+    emailGate.hidden = true;
+    reservationForm.hidden = false;
+    reservationForm.querySelector('[name="name"]')?.focus();
+  } catch (error) {
+    const message = error.message || "The verification code is not correct.";
+    setVerificationStatus(message, "error");
+    showReservationMessage({
+      title: "Check your code",
+      message,
+      type: "error",
+    });
+  } finally {
+    continueReservationButton.disabled = false;
+  }
+}
+
+continueReservationButton?.addEventListener("click", continueToReservationDetails);
+
+verificationCode?.addEventListener("keydown", (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    continueToReservationDetails();
+  }
+});
 
 if (reservationForm) {
   reservationForm.addEventListener("submit", async (event) => {
@@ -164,6 +316,17 @@ if (reservationForm) {
 
     if (!reservationForm.checkValidity()) {
       reservationForm.reportValidity();
+      return;
+    }
+
+    const suggestedDomain = obviousEmailTypo(payload.email);
+    if (suggestedDomain) {
+      showReservationMessage({
+        title: "Check your email",
+        message: `Please check your email address. Did you mean ${suggestedDomain}?`,
+        type: "error",
+      });
+      reservationForm.querySelector('[name="email"]')?.focus();
       return;
     }
 
@@ -188,6 +351,13 @@ if (reservationForm) {
       reservationForm.reset();
       resetTimeDropdown();
       reservationForm.querySelector('[name="guests"]').value = "2";
+      reservationForm.querySelector('[name="email"]').value = "";
+      reservationForm.querySelector('[name="email_code"]').value = "";
+      if (emailGate) emailGate.hidden = false;
+      reservationForm.hidden = true;
+      if (verificationEmail) verificationEmail.value = "";
+      if (verificationCode) verificationCode.value = "";
+      setVerificationStatus("", "");
       setReservationStatus("", "");
       showReservationMessage({
         title: "Request received",

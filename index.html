@@ -8,8 +8,8 @@
       content="Cartel Cocktail Bar in Protaras: signature cocktails, late-night music, and a polished stop on the Protaras strip."
     />
     <title>Cartel Cocktail Bar Protaras</title>
-    <link rel="stylesheet" href="styles.css?v=mobile-cocktail-title-top" />
-    <script src="app.js?v=cocktail-editor" defer></script>
+    <link rel="stylesheet" href="styles.css?v=email-gate-flow" />
+    <script src="app.js?v=email-gate-flow" defer></script>
   </head>
   <body>
     <header class="site-header">
@@ -214,7 +214,29 @@
             <span>Confirmation by email</span>
           </div>
         </div>
-        <form class="reservation-form" id="reservation-form">
+        <section class="email-gate" id="email-gate" aria-labelledby="email-gate-title">
+          <p class="eyebrow">Email verification</p>
+          <h3 id="email-gate-title">Verify your email first.</h3>
+          <p>
+            We will send a private 6-digit code so your reservation details are protected and your confirmation can reach you.
+          </p>
+          <label>
+            Email
+            <input id="verification-email" type="email" autocomplete="email" required />
+          </label>
+          <div class="email-verification">
+            <label>
+              Verification code
+              <input id="verification-code" type="text" inputmode="numeric" autocomplete="one-time-code" maxlength="6" />
+            </label>
+            <button class="verify-email-button" type="button" id="verify-email-button">Send code</button>
+          </div>
+          <button class="button primary" type="button" id="continue-reservation-button">Continue to reservation</button>
+          <p class="form-status" id="verification-status" role="status" aria-live="polite"></p>
+        </section>
+        <form class="reservation-form" id="reservation-form" hidden>
+          <input name="email" type="hidden" />
+          <input name="email_code" type="hidden" />
           <label>
             Name
             <input name="name" type="text" autocomplete="name" required />
@@ -222,10 +244,6 @@
           <label>
             Phone
             <input name="phone" type="tel" autocomplete="tel" required />
-          </label>
-          <label>
-            Email
-            <input name="email" type="email" autocomplete="email" required />
           </label>
           <div class="form-row">
             <label>

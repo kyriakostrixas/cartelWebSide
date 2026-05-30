@@ -49,7 +49,6 @@ const manualCloseButtons = [
 let reservations = [];
 let statistics = null;
 const ADMIN_TOKEN_KEY = "cartel_admin_token";
-const failedEmailAlerts = new Set();
 
 function showAdminMessage({
   kicker = "Reservation update",
@@ -241,8 +240,8 @@ function emailStatusLabel(status) {
   const labels = {
     not_configured: "not sent",
     not_sent: "not sent",
-    sent: "sent / awaiting delivery",
-    delivered: "delivered",
+    sent: "sent",
+    delivered: "sent",
     failed: "failed / bounced",
   };
 
@@ -504,52 +503,7 @@ function renderReservations() {
     filtered.length === 1 ? "1 reservation shown" : `${filtered.length} reservations shown`;
 }
 
-function isEmailFailure(status) {
-  return ["failed", "bounced", "blocked", "invalid"].includes(String(status || ""));
-}
-
-function notifyEmailDeliveryFailures(nextReservations) {
-  const previousById = new Map(reservations.map((item) => [String(item.id), item]));
-  nextReservations.forEach((reservation) => {
-    const previous = previousById.get(String(reservation.id));
-    const alertKey = `${reservation.id}:${reservation.notification_status}`;
-    if (
-      previous?.notification_status === "sent" &&
-      isEmailFailure(reservation.notification_status) &&
-      !failedEmailAlerts.has(alertKey)
-    ) {
-      failedEmailAlerts.add(alertKey);
-      showAdminMessage({
-        kicker: "Email delivery failed",
-        title: "Confirm by phone",
-        message:
-          "Brevo reported that the confirmation email did not arrive. Please contact the customer by phone.",
-        detail: `${reservation.name || "Customer"} · ${reservation.phone || "No phone"}`,
-        type: "error",
-      });
-    }
-    if (
-      previous?.notification_status === "sent" &&
-      reservation.notification_status === "delivered" &&
-      reservation.status === "confirmed" &&
-      !failedEmailAlerts.has(`delivered:${reservation.id}`)
-    ) {
-      failedEmailAlerts.add(`delivered:${reservation.id}`);
-      showAdminMessage({
-        kicker: "Email delivered",
-        title: "Reservation confirmed",
-        message:
-          "Brevo confirmed the customer received the email. The reservation has now been confirmed automatically.",
-        detail: `${reservation.name || "Customer"} · ${reservation.phone || "No phone"}`,
-      });
-    }
-  });
-}
-
 function setReservations(nextReservations, { notifyFailures = false } = {}) {
-  if (notifyFailures) {
-    notifyEmailDeliveryFailures(nextReservations);
-  }
   reservations = nextReservations;
 }
 
@@ -609,11 +563,11 @@ async function loadStatistics() {
   showStatisticsView();
 }
 
-async function updateStatus(id, status, options = {}) {
+async function updateStatus(id, status) {
   const response = await fetch("/api/admin/reservations/status", {
     method: "POST",
     headers: adminHeaders({ "Content-Type": "application/json" }),
-    body: JSON.stringify({ id, status, force_confirm: Boolean(options.forceConfirm) }),
+    body: JSON.stringify({ id, status }),
   });
   const result = await response.json();
 
@@ -810,7 +764,6 @@ reservationsList.addEventListener("click", async (event) => {
   if (!button) return;
 
   const card = button.closest(".reservation-card");
-  const reservation = reservations.find((item) => String(item.id) === String(card.dataset.id));
   button.disabled = true;
 
   try {
@@ -818,44 +771,19 @@ reservationsList.addEventListener("click", async (event) => {
     if (button.dataset.status === "confirmed") {
       const emailWasSent = result.notification?.status === "sent";
       await showAdminMessage({
+        kicker: "Confirmed",
         title: emailWasSent ? "Email sent" : "Reservation confirmed",
         message: emailWasSent
-          ? "Brevo accepted the confirmation email. The reservation will stay pending until Brevo reports that the email was delivered."
+          ? "The confirmation email was sent to the customer and the reservation is now confirmed."
           : "The reservation is now confirmed successfully.",
       });
     }
   } catch (error) {
-    const result = error.result || {};
-    const failedReservation = result.reservation || reservation;
-    if (button.dataset.status === "confirmed" && result.notification) {
-      const action = await showAdminMessage({
-        kicker: "Email not sent",
-        title: "Confirm by phone?",
-        message:
-          "The confirmation email was not sent. Please continue the confirmation by phone, or cancel to keep the reservation in its previous status.",
-        detail: failedReservation
-          ? `${failedReservation.name || "Customer"} · ${failedReservation.phone || "No phone"}`
-          : "",
-        confirmLabel: "Continue to confirm",
-        cancelLabel: "Cancel",
-        showCancel: true,
-        type: "error",
-      });
-
-      if (action === "confirm") {
-        await updateStatus(card.dataset.id, "confirmed", { forceConfirm: true });
-        await showAdminMessage({
-          title: "Confirmed by phone",
-          message: "The reservation is confirmed. Please contact the customer by phone using the details shown on the booking card.",
-        });
-      }
-    } else {
-      await showAdminMessage({
-        title: "Update failed",
-        message: error.message || "Could not update reservation.",
-        type: "error",
-      });
-    }
+    await showAdminMessage({
+      title: "Update failed",
+      message: error.message || "Could not update reservation.",
+      type: "error",
+    });
   } finally {
     button.disabled = false;
   }

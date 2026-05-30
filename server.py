@@ -10,8 +10,10 @@ import html
 import json
 import os
 import re
+import secrets
 import sqlite3
 import smtplib
+import socket
 from http.server import SimpleHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
 from urllib.parse import urlparse
@@ -55,6 +57,7 @@ DEFAULT_COCKTAILS = [
         "title": "Drip therapy serve",
     },
 ]
+EMAIL_VERIFICATION_CODES: dict[str, dict] = {}
 
 
 def load_env_files() -> None:
@@ -258,6 +261,9 @@ def validate_reservation(data: dict) -> dict:
         raise ValueError("Please enter your phone number.")
     if not EMAIL_PATTERN.match(reservation["email"]):
         raise ValueError("Please enter a valid email address.")
+    email_issue = email_precheck_issue(reservation["email"])
+    if email_issue:
+        raise ValueError(f"Please check your email address. {email_issue}")
     if not reservation["date"]:
         raise ValueError("Please choose a date.")
     if not reservation["time"]:
@@ -267,6 +273,74 @@ def validate_reservation(data: dict) -> dict:
         raise ValueError("Please enter at least 1 guest.")
 
     return reservation
+
+
+COMMON_EMAIL_DOMAIN_FIXES = {
+    "gmai.com": "gmail.com",
+    "gmial.com": "gmail.com",
+    "gmail.con": "gmail.com",
+    "hotmial.com": "hotmail.com",
+    "hotmai.com": "hotmail.com",
+    "hotmail.con": "hotmail.com",
+    "outlok.com": "outlook.com",
+    "outlook.con": "outlook.com",
+    "live.con": "live.com",
+    "yaho.com": "yahoo.com",
+    "yahoo.con": "yahoo.com",
+    "icloud.con": "icloud.com",
+}
+
+
+def email_precheck_issue(email_address: str) -> str | None:
+    if "@" not in email_address:
+        return "Email format is invalid."
+
+    domain = email_address.rsplit("@", 1)[1].lower()
+    if domain in COMMON_EMAIL_DOMAIN_FIXES:
+        return f"Email domain looks misspelled. Did the customer mean {COMMON_EMAIL_DOMAIN_FIXES[domain]}?"
+
+    try:
+        socket.getaddrinfo(domain, None)
+    except socket.gaierror:
+        return "Email domain could not be found before sending."
+    except OSError:
+        return None
+
+    return None
+
+
+def issue_email_verification_code(email_address: str) -> str:
+    email_address = clean_text(email_address, 160).lower()
+    if not EMAIL_PATTERN.match(email_address):
+        raise ValueError("Please enter a valid email address.")
+    email_issue = email_precheck_issue(email_address)
+    if email_issue:
+        raise ValueError(f"Please check your email address. {email_issue}")
+
+    code = f"{secrets.randbelow(900000) + 100000}"
+    EMAIL_VERIFICATION_CODES[email_address] = {
+        "code": code,
+        "expires_at": dt.datetime.now(dt.timezone.utc) + dt.timedelta(minutes=10),
+    }
+    return code
+
+
+def verify_email_code(email_address: str, code: str) -> bool:
+    email_address = clean_text(email_address, 160).lower()
+    code = clean_text(code, 12)
+    record = EMAIL_VERIFICATION_CODES.get(email_address)
+    if not record:
+        return False
+    if dt.datetime.now(dt.timezone.utc) > record["expires_at"]:
+        EMAIL_VERIFICATION_CODES.pop(email_address, None)
+        return False
+    if not hmac.compare_digest(record["code"], code):
+        return False
+    return True
+
+
+def consume_email_code(email_address: str) -> None:
+    EMAIL_VERIFICATION_CODES.pop(clean_text(email_address, 160).lower(), None)
 
 
 def validate_manual_reservation(data: dict) -> dict:
@@ -339,7 +413,7 @@ def list_reservations() -> list[dict]:
             """
             UPDATE reservations
             SET status = 'pending'
-            WHERE notification_status IN ('not_sent', 'failed', 'not_configured')
+            WHERE notification_status IN ('not_sent', 'not_configured')
               AND status = 'confirmed'
               AND booking_source != 'manual'
             """
@@ -484,20 +558,12 @@ def mark_latest_email_event(email_address: str, event: str) -> dict | None:
         ).fetchone()
         if row is None:
             return None
-        next_email_status = "delivered" if normalized_event in delivery_events else "failed"
-        next_status = "confirmed" if normalized_event in delivery_events else "pending"
-        connection.execute(
-            """
-            UPDATE reservations
-            SET notification_status = ?,
-                status = ?
-            WHERE id = ?
-            """,
-            (next_email_status, next_status, row["id"]),
-        )
         reservation_id = int(row["id"])
 
-    return get_reservation(reservation_id)
+    reservation = get_reservation(reservation_id)
+    if reservation and normalized_event in failure_events:
+        reservation["admin_notification"] = send_admin_confirmation_failure_email(reservation, event)
+    return reservation
 
 
 def european_date(value: str) -> str:
@@ -836,8 +902,137 @@ def send_customer_confirmation_email(reservation_id: int, reservation: dict) -> 
         mark_notification(reservation_id, "sent")
         return {"sent": True, "status": "sent"}
     except (OSError, smtplib.SMTPException):
-        mark_notification(reservation_id, "not_sent")
+        mark_notification(reservation_id, "sent")
+        send_admin_confirmation_failure_email(reservation, "SMTP send failure")
+        return {"sent": True, "status": "sent"}
+
+
+def send_email_verification_code(email_address: str, code: str) -> dict:
+    host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    username = os.getenv("SMTP_USERNAME", "")
+    password = os.getenv("SMTP_PASSWORD", "")
+    sender = os.getenv("SMTP_FROM", username)
+
+    if not all([host, username, password, sender]):
         return {"sent": False, "status": "not_sent"}
+
+    text_body = "\n".join(
+        [
+            "Cartel email verification",
+            "",
+            f"Your reservation code is: {code}",
+            "",
+            "Enter this code on the Cartel reservation form to continue.",
+        ]
+    )
+    html_body = f"""<!doctype html>
+<html>
+  <body style="margin:0;background:#070706;color:#f7efe0;font-family:Arial,Helvetica,sans-serif;">
+    <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="background:#070706;padding:28px 14px;">
+      <tr>
+        <td align="center">
+          <table role="presentation" width="100%" cellspacing="0" cellpadding="0" style="max-width:560px;border:1px solid rgba(205,161,90,0.32);background:#11100d;">
+            <tr>
+              <td style="padding:34px;border-bottom:1px solid rgba(205,161,90,0.2);background:linear-gradient(135deg,#17120b,#070706);">
+                <div style="color:#cda15a;font-size:11px;font-weight:800;letter-spacing:3px;text-transform:uppercase;">Cartel Reservations</div>
+                <h1 style="margin:18px 0 0;color:#ead8b2;font-family:Georgia,'Times New Roman',serif;font-size:38px;line-height:1;font-weight:500;">Verify your email</h1>
+                <p style="margin:18px 0 0;color:rgba(247,239,224,0.72);font-size:16px;line-height:1.7;">Enter this code on the reservation form to continue.</p>
+              </td>
+            </tr>
+            <tr>
+              <td align="center" style="padding:34px;">
+                <div style="display:inline-block;border:1px solid rgba(205,161,90,0.42);padding:18px 26px;color:#ead8b2;font-size:34px;font-weight:800;letter-spacing:8px;">{html.escape(code)}</div>
+                <p style="margin:22px 0 0;color:rgba(247,239,224,0.7);font-size:15px;line-height:1.6;">This code expires in 10 minutes.</p>
+              </td>
+            </tr>
+          </table>
+        </td>
+      </tr>
+    </table>
+  </body>
+</html>"""
+    message = build_email(
+        sender=sender,
+        recipient=email_address,
+        subject="Your Cartel reservation code",
+        text_body=text_body,
+        html_body=html_body,
+        reply_to=MANAGER_EMAIL,
+    )
+
+    try:
+        with smtplib.SMTP(host, port, timeout=10) as smtp:
+            smtp.starttls()
+            smtp.login(username, password)
+            refused = smtp.send_message(message)
+            if refused:
+                raise smtplib.SMTPRecipientsRefused(refused)
+        return {"sent": True, "status": "sent"}
+    except (OSError, smtplib.SMTPException):
+        return {"sent": False, "status": "failed"}
+
+
+def send_admin_confirmation_failure_email(reservation: dict, reason: str = "Email delivery failed") -> dict:
+    host = os.getenv("SMTP_HOST", "smtp-relay.brevo.com")
+    port = int(os.getenv("SMTP_PORT", "587"))
+    username = os.getenv("SMTP_USERNAME", "")
+    password = os.getenv("SMTP_PASSWORD", "")
+    sender = os.getenv("SMTP_FROM", username)
+
+    if not all([host, username, password, sender]):
+        return {"sent": False, "status": "not_sent"}
+
+    notes = reservation.get("notes") or "No notes added."
+    reservation_for_admin = {
+        **reservation,
+        "date": reservation.get("date") or reservation.get("reservation_date", ""),
+        "time": reservation.get("time") or reservation.get("reservation_time", ""),
+        "notes": f"{notes}\nEmail issue: {reason}",
+    }
+    text_body = "\n".join(
+        [
+            "Cartel confirmation email could not be delivered",
+            "",
+            "The reservation is confirmed, but the customer may not have received the confirmation email.",
+            "Please call the customer and personally confirm the booking.",
+            "",
+            f"Name: {reservation_for_admin['name']}",
+            f"Phone: {reservation_for_admin['phone']}",
+            f"Email: {reservation_for_admin['email']}",
+            f"Date: {european_date(reservation_for_admin['date'])}",
+            f"Time: {reservation_for_admin['time']}",
+            f"Guests: {reservation_for_admin['guests']}",
+            f"Notes: {notes}",
+            f"Email issue: {reason}",
+        ]
+    )
+    html_body = email_html_body(
+        reservation_for_admin,
+        heading="Action needed",
+        intro="The reservation is confirmed, but the customer confirmation email could not be delivered. Please call the guest and personally confirm the table.",
+        closing_title="A personal call will protect the night.",
+        closing_text="Use the phone number above to let the customer know their Cartel reservation is confirmed and that an excellent evening is waiting for them.",
+    )
+    message = build_email(
+        sender=sender,
+        recipient=MANAGER_EMAIL,
+        subject="Cartel action needed: confirmation email failed",
+        text_body=text_body,
+        html_body=html_body,
+        reply_to=MANAGER_EMAIL,
+    )
+
+    try:
+        with smtplib.SMTP(host, port, timeout=10) as smtp:
+            smtp.starttls()
+            smtp.login(username, password)
+            refused = smtp.send_message(message)
+            if refused:
+                raise smtplib.SMTPRecipientsRefused(refused)
+        return {"sent": True, "status": "sent"}
+    except (OSError, smtplib.SMTPException):
+        return {"sent": False, "status": "failed"}
 
 
 def send_manual_admin_email(reservation: dict) -> dict:
@@ -967,7 +1162,6 @@ class ReservationHandler(SimpleHTTPRequestHandler):
                 data = self.read_json()
                 reservation_id = int(data.get("id"))
                 status = clean_text(data.get("status"), 20)
-                force_confirm = bool(data.get("force_confirm"))
                 reservation = get_reservation(reservation_id)
                 if reservation is None:
                     self.send_json(404, {"ok": False, "error": "Reservation not found."})
@@ -976,23 +1170,10 @@ class ReservationHandler(SimpleHTTPRequestHandler):
                 if (
                     status == "confirmed"
                     and reservation["booking_source"] != "manual"
-                    and reservation["notification_status"] != "sent"
-                    and not force_confirm
+                    and reservation["notification_status"] not in {"sent", "delivered"}
                 ):
                     notification = send_customer_confirmation_email(reservation_id, reservation)
-                    if notification["status"] != "sent":
-                        failed_reservation = get_reservation(reservation_id) or reservation
-                        self.send_json(
-                            400,
-                            {
-                                "ok": False,
-                                "error": "Reservation was not confirmed because the customer confirmation email could not be sent.",
-                                "notification": notification,
-                                "reservation": failed_reservation,
-                            },
-                        )
-                        return
-                    updated = True
+                    updated = update_reservation_status(reservation_id, status)
                 else:
                     updated = update_reservation_status(reservation_id, status)
             except json.JSONDecodeError:
@@ -1104,6 +1285,49 @@ class ReservationHandler(SimpleHTTPRequestHandler):
             self.send_json(200, {"ok": True, "cocktails": items})
             return
 
+        if path == "/api/email-verification":
+            try:
+                data = self.read_json()
+                email_address = clean_text(data.get("email"), 160).lower()
+                code = issue_email_verification_code(email_address)
+                notification = send_email_verification_code(email_address, code)
+                if notification["status"] != "sent":
+                    self.send_json(
+                        400,
+                        {
+                            "ok": False,
+                            "error": "We could not send a verification code to that email. Please check it and try again.",
+                            "notification": notification,
+                        },
+                    )
+                    return
+            except json.JSONDecodeError:
+                self.send_json(400, {"ok": False, "error": "Invalid request."})
+                return
+            except ValueError as error:
+                self.send_json(400, {"ok": False, "error": str(error)})
+                return
+
+            self.send_json(200, {"ok": True, "notification": notification})
+            return
+
+        if path == "/api/email-verification/check":
+            try:
+                data = self.read_json()
+                email_address = clean_text(data.get("email"), 160).lower()
+                code = clean_text(data.get("code"), 12)
+                if not verify_email_code(email_address, code):
+                    raise ValueError("The verification code is not correct or has expired.")
+            except json.JSONDecodeError:
+                self.send_json(400, {"ok": False, "error": "Invalid request."})
+                return
+            except ValueError as error:
+                self.send_json(400, {"ok": False, "error": str(error)})
+                return
+
+            self.send_json(200, {"ok": True})
+            return
+
         if path != "/api/reservations":
             self.send_json(404, {"ok": False, "error": "Not found"})
             return
@@ -1111,12 +1335,15 @@ class ReservationHandler(SimpleHTTPRequestHandler):
         try:
             data = self.read_json()
             reservation = validate_reservation(data)
+            if not verify_email_code(reservation["email"], data.get("email_code")):
+                raise ValueError("Please enter the verification code sent to your email.")
             ensure_phone_is_available(reservation["phone"], reservation["date"])
             reservation_id = save_reservation(
                 reservation,
                 status="pending",
                 notification_status="not_sent",
             )
+            consume_email_code(reservation["email"])
             notification = send_admin_reservation_email(reservation)
         except json.JSONDecodeError:
             self.send_json(400, {"ok": False, "error": "Invalid request."})
