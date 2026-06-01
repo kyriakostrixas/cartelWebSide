@@ -1,0 +1,32 @@
+{
+  "events": [
+    {
+      "date": "2026-05-29",
+      "day": "29",
+      "month": "May",
+      "title": "DJ MG",
+      "music": "OLD SHOOL R&B MUSIC"
+    },
+    {
+      "date": "2026-05-30",
+      "day": "30",
+      "month": "May",
+      "title": "DJ RAFAELOS",
+      "music": "Mainstream Music"
+    },
+    {
+      "date": "2026-05-31",
+      "day": "31",
+      "month": "May",
+      "title": "DJ CHRIS NI",
+      "music": "MAINSTREAM MUSIC"
+    },
+    {
+      "date": "2026-06-01",
+      "day": "01",
+      "month": "Jun",
+      "title": "DJ DJANOVA",
+      "music": "AFROHOUSE"
+    }
+  ]
+}

@@ -20,14 +20,21 @@ const refreshButton = document.querySelector("#refresh-button");
 const logoutButton = document.querySelector("#logout-button");
 const statisticsButton = document.querySelector("#statistics-button");
 const cocktailsButton = document.querySelector("#cocktails-button");
+const eventsButton = document.querySelector("#events-button");
 const reservationsButton = document.querySelector("#reservations-button");
 const reservationsView = document.querySelector("#reservations-view");
 const statisticsView = document.querySelector("#statistics-view");
 const cocktailsView = document.querySelector("#cocktails-view");
+const eventsAdminView = document.querySelector("#events-admin-view");
 const statisticsList = document.querySelector("#statistics-list");
 const cocktailEditor = document.querySelector("#cocktail-editor");
 const cocktailEditorGrid = document.querySelector("#cocktail-editor-grid");
 const cocktailStatus = document.querySelector("#cocktail-status");
+const eventEditor = document.querySelector("#event-editor");
+const eventEditorList = document.querySelector("#event-editor-list");
+const eventAdd = document.querySelector("#event-add");
+const eventSave = document.querySelector("#event-save");
+const eventStatus = document.querySelector("#event-status");
 const manualOpen = document.querySelector("#manual-open");
 const manualModal = document.querySelector("#manual-modal");
 const manualForm = document.querySelector("#manual-form");
@@ -128,8 +135,10 @@ function showReservationsView() {
   reservationsView.hidden = false;
   statisticsView.hidden = true;
   cocktailsView.hidden = true;
+  eventsAdminView.hidden = true;
   statisticsButton.hidden = false;
   cocktailsButton.hidden = false;
+  eventsButton.hidden = false;
   reservationsButton.hidden = true;
 }
 
@@ -137,8 +146,10 @@ function showStatisticsView() {
   reservationsView.hidden = true;
   statisticsView.hidden = false;
   cocktailsView.hidden = true;
+  eventsAdminView.hidden = true;
   statisticsButton.hidden = true;
   cocktailsButton.hidden = false;
+  eventsButton.hidden = false;
   reservationsButton.hidden = false;
 }
 
@@ -146,8 +157,21 @@ function showCocktailsView() {
   reservationsView.hidden = true;
   statisticsView.hidden = true;
   cocktailsView.hidden = false;
+  eventsAdminView.hidden = true;
   statisticsButton.hidden = false;
   cocktailsButton.hidden = true;
+  eventsButton.hidden = false;
+  reservationsButton.hidden = false;
+}
+
+function showEventsAdminView() {
+  reservationsView.hidden = true;
+  statisticsView.hidden = true;
+  cocktailsView.hidden = true;
+  eventsAdminView.hidden = false;
+  statisticsButton.hidden = false;
+  cocktailsButton.hidden = false;
+  eventsButton.hidden = true;
   reservationsButton.hidden = false;
 }
 
@@ -202,6 +226,83 @@ function renderCocktailEditor(items) {
   cocktailEditorGrid.innerHTML = items.map(cocktailCardTemplate).join("");
 }
 
+const eventMonthNames = [
+  "Jan",
+  "Feb",
+  "Mar",
+  "Apr",
+  "May",
+  "Jun",
+  "Jul",
+  "Aug",
+  "Sep",
+  "Oct",
+  "Nov",
+  "Dec",
+];
+
+function eventDateValue(item) {
+  if (item.date && /^\d{4}-\d{2}-\d{2}$/.test(item.date)) {
+    return item.date;
+  }
+
+  const monthIndex = eventMonthNames.findIndex(
+    (month) => month.toLowerCase() === String(item.month || "").slice(0, 3).toLowerCase(),
+  );
+  const day = String(item.day || "").padStart(2, "0");
+  if (monthIndex < 0 || !/^\d{2}$/.test(day)) return "";
+  return `${new Date().getFullYear()}-${String(monthIndex + 1).padStart(2, "0")}-${day}`;
+}
+
+function eventPartsFromDate(value) {
+  const match = /^(\d{4})-(\d{2})-(\d{2})$/.exec(value || "");
+  if (!match) return { day: "", month: "" };
+  const monthIndex = Number(match[2]) - 1;
+  return {
+    day: match[3],
+    month: eventMonthNames[monthIndex] || "",
+  };
+}
+
+function eventEditorTemplate(item, index) {
+  const dateValue = eventDateValue(item);
+  return `
+    <article class="event-editor-card" data-event-editor-card="${index}">
+      <label class="event-calendar-field">
+        Event date
+        <input name="date_${index}" type="date" value="${escapeHtml(dateValue)}" required />
+      </label>
+      <label>
+        Artist / Event title
+        <input name="title_${index}" type="text" value="${escapeHtml(item.title)}" required />
+      </label>
+      <label>
+        Music style
+        <input name="music_${index}" type="text" value="${escapeHtml(item.music)}" required />
+      </label>
+      <button class="ghost-button event-remove" type="button" data-remove-event="${index}">Delete Event</button>
+    </article>
+  `;
+}
+
+function renderEventEditor(items) {
+  eventEditorList.innerHTML = items.map(eventEditorTemplate).join("");
+}
+
+function collectEventEditorItems() {
+  return [...eventEditorList.querySelectorAll("[data-event-editor-card]")].map((card, index) => {
+    const date = card.querySelector(`[name="date_${index}"]`)?.value.trim() || "";
+    const { day, month } = eventPartsFromDate(date);
+    return {
+      date,
+      day,
+      month,
+      title: card.querySelector(`[name="title_${index}"]`)?.value.trim() || "",
+      music: card.querySelector(`[name="music_${index}"]`)?.value.trim() || "",
+    };
+  });
+}
+
 async function loadCocktailEditor() {
   const response = await fetch("/api/admin/cocktails", {
     headers: adminHeaders(),
@@ -217,6 +318,23 @@ async function loadCocktailEditor() {
   renderCocktailEditor(result.cocktails || []);
   cocktailStatus.textContent = "";
   showCocktailsView();
+}
+
+async function loadEventEditor() {
+  const response = await fetch("/api/admin/events", {
+    headers: adminHeaders(),
+  });
+  if (response.status === 401) {
+    showLogin("Please sign in again.");
+    return;
+  }
+  const result = await response.json();
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || "Could not load events.");
+  }
+  renderEventEditor(result.events || []);
+  eventStatus.textContent = "";
+  showEventsAdminView();
 }
 
 function escapeHtml(value) {
@@ -661,6 +779,27 @@ async function saveCocktailEditor() {
   return true;
 }
 
+async function saveEventEditor() {
+  const response = await fetch("/api/admin/events", {
+    method: "POST",
+    headers: adminHeaders({ "Content-Type": "application/json" }),
+    body: JSON.stringify({ events: collectEventEditorItems() }),
+  });
+  const result = await response.json();
+
+  if (response.status === 401) {
+    showLogin("Please sign in again.");
+    return false;
+  }
+
+  if (!response.ok || !result.ok) {
+    throw new Error(result.error || "Could not save events.");
+  }
+
+  renderEventEditor(result.events || []);
+  return true;
+}
+
 loginForm.addEventListener("submit", async (event) => {
   event.preventDefault();
   loginStatus.textContent = "";
@@ -745,6 +884,52 @@ cocktailEditor.addEventListener("submit", async (event) => {
   }
 });
 
+eventEditorList.addEventListener("click", (event) => {
+  const button = event.target.closest("[data-remove-event]");
+  if (!button) return;
+  const items = collectEventEditorItems();
+  items.splice(Number(button.dataset.removeEvent), 1);
+  renderEventEditor(items);
+});
+
+eventAdd.addEventListener("click", () => {
+  const items = collectEventEditorItems();
+  items.push({
+    date: "",
+    day: "",
+    month: "",
+    title: "",
+    music: "",
+  });
+  renderEventEditor(items);
+  const cards = eventEditorList.querySelectorAll("[data-event-editor-card]");
+  cards[cards.length - 1]?.querySelector("input")?.focus();
+});
+
+async function handleEventSave() {
+  eventStatus.textContent = "Saving events...";
+
+  try {
+    const saved = await saveEventEditor();
+    if (!saved) return;
+    eventStatus.textContent = "Events saved.";
+    await showAdminMessage({
+      kicker: "Event lineup",
+      title: "Saved",
+      message: "The website events section has been updated.",
+    });
+  } catch (error) {
+    eventStatus.textContent = error.message || "Could not save events.";
+  }
+}
+
+eventEditor.addEventListener("submit", async (event) => {
+  event.preventDefault();
+  await handleEventSave();
+});
+
+eventSave.addEventListener("click", handleEventSave);
+
 reservationsList.addEventListener("click", async (event) => {
   const arrivalButton = event.target.closest("button[data-arrived]");
   if (arrivalButton) {
@@ -803,15 +988,20 @@ clearFilters.addEventListener("click", () => {
 setInterval(checkEmailDeliveryUpdates, 15000);
 
 refreshButton.addEventListener("click", async () => {
-  if (statisticsView.hidden) {
-    await loadReservations();
-  } else {
+  if (!statisticsView.hidden) {
     await loadStatistics();
+  } else if (!cocktailsView.hidden) {
+    await loadCocktailEditor();
+  } else if (!eventsAdminView.hidden) {
+    await loadEventEditor();
+  } else {
+    await loadReservations();
   }
 });
 
 statisticsButton.addEventListener("click", loadStatistics);
 cocktailsButton.addEventListener("click", loadCocktailEditor);
+eventsButton.addEventListener("click", loadEventEditor);
 reservationsButton.addEventListener("click", () => {
   showReservationsView();
   renderReservations();

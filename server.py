@@ -22,6 +22,7 @@ from urllib.parse import urlparse
 ROOT = Path(__file__).resolve().parent
 DB_PATH = ROOT / "reservations.db"
 COCKTAILS_CONFIG_PATH = ROOT / "assets" / "cartel" / "cocktails.json"
+EVENTS_CONFIG_PATH = ROOT / "assets" / "cartel" / "events.json"
 COCKTAIL_UPLOAD_DIR = ROOT / "assets" / "cartel" / "uploads"
 MANAGER_EMAIL = "kyriakos.10@live.com"
 EMAIL_PATTERN = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
@@ -56,6 +57,14 @@ DEFAULT_COCKTAILS = [
         "eyebrow": "Doctor's Order",
         "title": "Drip therapy serve",
     },
+]
+DEFAULT_EVENTS = [
+    {"day": "01", "month": "May", "title": "DJ Koumnas", "music": "Mainstream Music"},
+    {"day": "09", "month": "May", "title": "DJ Deeno-S", "music": "Mainstream Music"},
+    {"day": "15", "month": "May", "title": "DJ MG", "music": "Old School R&B Night"},
+    {"day": "29", "month": "May", "title": "DJ MG", "music": "Old School R&B Night"},
+    {"day": "30", "month": "May", "title": "DJ Rafaelos", "music": "Mainstream Music"},
+    {"day": "31", "month": "May", "title": "DJ Chris NI", "music": "Mainstream Music"},
 ]
 EMAIL_VERIFICATION_CODES: dict[str, dict] = {}
 
@@ -185,6 +194,69 @@ def save_cocktail_items(items: list[dict]) -> None:
     COCKTAILS_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
     COCKTAILS_CONFIG_PATH.write_text(
         json.dumps({"cocktails": items}, indent=2) + "\n",
+        encoding="utf-8",
+    )
+
+
+def normalize_event_item(item: dict) -> dict:
+    day = re.sub(r"\D+", "", clean_text(item.get("day"), 2))[:2]
+    if day:
+        day = day.zfill(2)
+    month = clean_text(item.get("month"), 16).title()
+    date = clean_text(item.get("date"), 10)
+    title = clean_text(item.get("title"), 120)
+    music = clean_text(item.get("music"), 120)
+    return {
+        "date": date if re.match(r"^\d{4}-\d{2}-\d{2}$", date) else "",
+        "day": day,
+        "month": month,
+        "title": title,
+        "music": music,
+    }
+
+
+def event_items() -> list[dict]:
+    if EVENTS_CONFIG_PATH.exists():
+        try:
+            data = json.loads(EVENTS_CONFIG_PATH.read_text(encoding="utf-8"))
+            items = data.get("events", data)
+        except (json.JSONDecodeError, OSError):
+            items = DEFAULT_EVENTS
+    else:
+        items = DEFAULT_EVENTS
+
+    normalized = []
+    for item in items if isinstance(items, list) else []:
+        event = normalize_event_item(item if isinstance(item, dict) else {})
+        if all(event[key] for key in ("day", "month", "title", "music")):
+            normalized.append(event)
+    return normalized or [normalize_event_item(item) for item in DEFAULT_EVENTS]
+
+
+def validate_event_items(items: object) -> list[dict]:
+    if not isinstance(items, list):
+        raise ValueError("Please provide an events list.")
+    if len(items) > 24:
+        raise ValueError("Please keep the events list below 24 events.")
+
+    normalized = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        event = normalize_event_item(item)
+        if not all(event[key] for key in ("day", "month", "title", "music")):
+            continue
+        normalized.append(event)
+
+    if not normalized:
+        raise ValueError("Please add at least one event.")
+    return normalized
+
+
+def save_event_items(items: list[dict]) -> None:
+    EVENTS_CONFIG_PATH.parent.mkdir(parents=True, exist_ok=True)
+    EVENTS_CONFIG_PATH.write_text(
+        json.dumps({"events": items}, indent=2) + "\n",
         encoding="utf-8",
     )
 
@@ -1285,6 +1357,23 @@ class ReservationHandler(SimpleHTTPRequestHandler):
             self.send_json(200, {"ok": True, "cocktails": items})
             return
 
+        if path == "/api/admin/events":
+            if not self.require_admin():
+                return
+            try:
+                data = self.read_json()
+                items = validate_event_items(data.get("events"))
+                save_event_items(items)
+            except json.JSONDecodeError:
+                self.send_json(400, {"ok": False, "error": "Invalid request."})
+                return
+            except ValueError as error:
+                self.send_json(400, {"ok": False, "error": str(error)})
+                return
+
+            self.send_json(200, {"ok": True, "events": items})
+            return
+
         if path == "/api/email-verification":
             try:
                 data = self.read_json()
@@ -1392,10 +1481,20 @@ class ReservationHandler(SimpleHTTPRequestHandler):
             self.send_json(200, {"ok": True, "cocktails": cocktail_items()})
             return
 
+        if path == "/api/site/events":
+            self.send_json(200, {"ok": True, "events": event_items()})
+            return
+
         if path == "/api/admin/cocktails":
             if not self.require_admin():
                 return
             self.send_json(200, {"ok": True, "cocktails": cocktail_items()})
+            return
+
+        if path == "/api/admin/events":
+            if not self.require_admin():
+                return
+            self.send_json(200, {"ok": True, "events": event_items()})
             return
 
         super().do_GET()

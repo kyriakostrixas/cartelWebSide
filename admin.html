@@ -4,8 +4,8 @@
     <meta charset="utf-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1" />
     <title>Cartel Reservations Admin</title>
-    <link rel="stylesheet" href="admin.css?v=cocktail-original-preview" />
-    <script src="admin.js?v=verified-email-admin" defer></script>
+    <link rel="stylesheet" href="admin.css?v=event-save-header" />
+    <script src="admin.js?v=event-calendar" defer></script>
   </head>
   <body>
     <main class="admin-shell">
@@ -35,6 +35,7 @@
             <a href="/" class="ghost-button">Website</a>
             <button id="statistics-button" type="button" class="ghost-button">Statistics</button>
             <button id="cocktails-button" type="button" class="ghost-button">Edit cocktails section</button>
+            <button id="events-button" type="button" class="ghost-button">Edit events section</button>
             <button id="reservations-button" type="button" class="ghost-button" hidden>
               Reservations
             </button>
@@ -127,6 +128,23 @@
               <button type="submit">Save Cocktail Cards</button>
               <p class="status-message" id="cocktail-status" role="status" aria-live="polite"></p>
             </div>
+          </form>
+        </section>
+
+        <section class="events-admin-view" id="events-admin-view" hidden>
+          <div class="panel-heading">
+            <div>
+              <h2>Event Lineup</h2>
+              <p>Add, edit, or remove the events shown on the website events section.</p>
+            </div>
+            <div class="event-heading-actions">
+              <button id="event-add" type="button" class="ghost-button">Add Event</button>
+              <button id="event-save" type="button">Save Events</button>
+            </div>
+          </div>
+          <form class="event-editor" id="event-editor">
+            <div class="event-editor-list" id="event-editor-list"></div>
+            <p class="status-message event-status" id="event-status" role="status" aria-live="polite"></p>
           </form>
         </section>
 

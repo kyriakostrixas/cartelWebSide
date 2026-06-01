@@ -595,12 +595,14 @@ button,
   overflow: hidden;
 }
 
-.cocktails-view {
+.cocktails-view,
+.events-admin-view {
   border: 1px solid rgba(205, 161, 90, 0.2);
   background: rgba(17, 16, 13, 0.78);
 }
 
-.cocktail-editor {
+.cocktail-editor,
+.event-editor {
   padding: 18px;
 }
 
@@ -634,6 +636,71 @@ button,
   font-family: Georgia, "Times New Roman", serif;
   font-size: 1.4rem;
   font-weight: 500;
+}
+
+.event-editor-list {
+  display: grid;
+  gap: 12px;
+}
+
+.event-editor-card {
+  display: grid;
+  grid-template-columns: minmax(190px, 0.85fr) minmax(220px, 1.25fr) minmax(220px, 1.25fr) auto;
+  gap: 14px;
+  align-items: end;
+  border: 1px solid rgba(205, 161, 90, 0.2);
+  background:
+    linear-gradient(145deg, rgba(22, 17, 11, 0.9), rgba(7, 7, 6, 0.9)),
+    var(--panel);
+  padding: 16px;
+}
+
+.event-calendar-field input {
+  border-color: rgba(205, 161, 90, 0.38);
+  background:
+    linear-gradient(135deg, rgba(205, 161, 90, 0.08), rgba(7, 7, 6, 0.72)),
+    rgba(7, 7, 6, 0.72);
+  color: var(--champagne);
+  font-weight: 800;
+  letter-spacing: 0.03em;
+}
+
+.event-calendar-field input::-webkit-calendar-picker-indicator {
+  cursor: pointer;
+  filter: invert(74%) sepia(36%) saturate(458%) hue-rotate(357deg) brightness(92%);
+  opacity: 0.95;
+}
+
+.event-remove {
+  min-width: 128px;
+}
+
+.event-heading-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 10px;
+  justify-content: flex-end;
+}
+
+.event-status {
+  margin: 14px 0 0;
+  text-align: right;
+}
+
+@media (min-width: 901px) {
+  .event-editor-list {
+    gap: 22px;
+  }
+
+  .event-editor-card {
+    padding: 20px;
+  }
+
+  .event-heading-actions button {
+    min-width: 168px;
+    min-height: 52px;
+    font-size: 0.84rem;
+  }
 }
 
 .upload-zone {
@@ -797,6 +864,7 @@ button,
   .reservation-card,
   .reservation-meta,
   .manual-grid,
+  .event-editor-card,
   .cocktail-editor-grid,
   .statistics-grid {
     grid-template-columns: 1fr;

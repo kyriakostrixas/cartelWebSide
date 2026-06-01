@@ -17,6 +17,8 @@ const timeTrigger = timeDropdown?.querySelector(".time-trigger");
 const timeMenu = timeDropdown?.querySelector(".time-menu");
 const timeOptions = timeDropdown ? [...timeDropdown.querySelectorAll(".time-option")] : [];
 const cocktailCards = [...document.querySelectorAll("[data-cocktail-card]")];
+const eventsList = document.querySelector("[data-events-list]");
+const eventsSection = document.querySelector("#events");
 
 if (reservationDate) {
   reservationDate.min = new Date().toISOString().slice(0, 10);
@@ -146,6 +148,50 @@ async function loadCocktailCards() {
 }
 
 loadCocktailCards();
+
+function escapeHtml(value) {
+  return String(value ?? "")
+    .replaceAll("&", "&amp;")
+    .replaceAll("<", "&lt;")
+    .replaceAll(">", "&gt;")
+    .replaceAll('"', "&quot;")
+    .replaceAll("'", "&#039;");
+}
+
+function eventTemplate(item) {
+  return `
+    <article class="event-row">
+      <time><span>${escapeHtml(item.day)}</span>${escapeHtml(item.month)}</time>
+      <div>
+        <h3>${escapeHtml(item.title)}</h3>
+        <p>${escapeHtml(item.music)}</p>
+      </div>
+    </article>
+  `;
+}
+
+function updateEventsDensity(count) {
+  if (!eventsSection) return;
+  eventsSection.classList.toggle("events-compact", count <= 4);
+  eventsSection.classList.toggle("events-short", count <= 2);
+}
+
+async function loadEvents() {
+  if (!eventsList) return;
+  updateEventsDensity(eventsList.querySelectorAll(".event-row").length);
+
+  try {
+    const response = await fetch("/api/site/events");
+    const result = await response.json();
+    if (!response.ok || !result.ok || !Array.isArray(result.events)) return;
+    eventsList.innerHTML = result.events.map(eventTemplate).join("");
+    updateEventsDensity(result.events.length);
+  } catch (error) {
+    // Keep the default static lineup if the server is unavailable.
+  }
+}
+
+loadEvents();
 
 function reservationPayload(form) {
   const data = new FormData(form);
