@@ -172,8 +172,26 @@ function eventTemplate(item) {
 
 function updateEventsDensity(count) {
   if (!eventsSection) return;
+  eventsSection.style.setProperty("--event-count", String(count));
+  const desktopBottom = count >= 5
+    ? Math.max(16, 78 - count * 10)
+    : Math.max(18, 56 - count * 7);
+  const ctaGap = count >= 5
+    ? Math.max(8, 36 - count * 4)
+    : 14;
+  const mobileBottom = count >= 5
+    ? Math.max(14, 58 - count * 8)
+    : Math.max(16, 44 - count * 6);
+  const mobileCtaGap = count >= 5
+    ? Math.max(8, 28 - count * 3)
+    : 12;
+  eventsSection.style.setProperty("--events-desktop-bottom", `${desktopBottom}px`);
+  eventsSection.style.setProperty("--events-cta-gap", `${ctaGap}px`);
+  eventsSection.style.setProperty("--events-mobile-bottom", `${mobileBottom}px`);
+  eventsSection.style.setProperty("--events-mobile-cta-gap", `${mobileCtaGap}px`);
   eventsSection.classList.toggle("events-compact", count <= 4);
   eventsSection.classList.toggle("events-short", count <= 2);
+  eventsSection.classList.toggle("events-long", count >= 5);
 }
 
 async function loadEvents() {

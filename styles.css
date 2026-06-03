@@ -552,36 +552,28 @@ p {
 }
 
 .events-section::before {
-  content: "";
-  position: absolute;
-  inset: clamp(64px, 10vw, 120px) 0 calc(clamp(64px, 10vw, 120px) + 96px) auto;
-  width: min(720px, 66vw);
-  border: 1px solid rgba(205, 161, 90, 0.12);
-  background:
-    linear-gradient(90deg, rgba(7, 7, 6, 0.92), rgba(7, 7, 6, 0.72)),
-    url("assets/cartel/804ec1d6-2b3a-4b4e-9bdf-76db5fa9606a.jpeg") center / cover;
-  opacity: 0.56;
+  content: none;
 }
 
 .events-section.events-compact {
   column-gap: clamp(22px, 4vw, 46px);
   row-gap: 12px;
-  padding-top: clamp(38px, 6vw, 64px);
-  padding-bottom: clamp(38px, 6vw, 64px);
+  padding-top: clamp(28px, 5vw, 46px);
+  padding-bottom: clamp(22px, 4vw, 34px);
 }
 
 .events-section.events-compact::before {
-  inset: clamp(38px, 6vw, 64px) 0 calc(clamp(38px, 6vw, 64px) + 92px) auto;
+  inset: clamp(28px, 5vw, 46px) 0 calc(clamp(22px, 4vw, 34px) + 82px) auto;
 }
 
 .events-section.events-short {
   row-gap: 10px;
-  padding-top: clamp(30px, 5vw, 48px);
-  padding-bottom: clamp(30px, 5vw, 48px);
+  padding-top: clamp(24px, 4vw, 38px);
+  padding-bottom: clamp(18px, 3vw, 28px);
 }
 
 .events-section.events-short::before {
-  inset: clamp(30px, 5vw, 48px) 0 calc(clamp(30px, 5vw, 48px) + 88px) auto;
+  inset: clamp(24px, 4vw, 38px) 0 calc(clamp(18px, 3vw, 28px) + 78px) auto;
 }
 
 .events-section.events-compact .event-row {
@@ -613,11 +605,26 @@ p {
 }
 
 .events-list {
+  position: relative;
   display: grid;
   gap: 12px;
+  overflow: hidden;
+  padding: 0;
+  border: 0;
+}
+
+.events-list::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  background:
+    linear-gradient(135deg, rgba(205, 161, 90, 0.06), transparent 46%),
+    rgba(7, 7, 6, 0.56);
 }
 
 .event-row {
+  position: relative;
+  z-index: 1;
   display: grid;
   grid-template-columns: 92px minmax(0, 1fr);
   gap: clamp(18px, 3vw, 34px);
@@ -675,7 +682,7 @@ p {
   justify-self: center;
   width: min(100%, 430px);
   min-height: 58px;
-  margin-top: 24px;
+  margin-top: 14px;
   border: 1px solid rgba(205, 161, 90, 0.62);
   background:
     linear-gradient(135deg, rgba(205, 161, 90, 0.98), rgba(234, 216, 178, 0.9)),
@@ -704,6 +711,30 @@ p {
   box-shadow: 0 22px 58px rgba(0, 0, 0, 0.36);
   outline: 0;
   transform: translateY(-2px);
+}
+
+@media (min-width: 881px) {
+  .events-section {
+    padding-bottom: var(--events-desktop-bottom, 34px);
+  }
+
+  .events-cta {
+    grid-column: 2;
+    justify-self: center;
+  }
+
+  .events-section.events-compact {
+    padding-bottom: var(--events-desktop-bottom, 28px);
+  }
+
+  .events-section.events-long {
+    row-gap: clamp(8px, 1vw, 14px);
+    padding-bottom: var(--events-desktop-bottom, 28px);
+  }
+
+  .events-section.events-long .events-cta {
+    margin-top: var(--events-cta-gap, 14px);
+  }
 }
 
 .visit {
@@ -875,6 +906,35 @@ p {
     linear-gradient(115deg, rgba(18, 14, 9, 0.98), rgba(7, 7, 6, 0.98) 58%),
     #0d0b08;
   box-shadow: 0 28px 90px rgba(0, 0, 0, 0.64);
+}
+
+.reservation-close {
+  position: absolute;
+  top: 16px;
+  right: 16px;
+  z-index: 3;
+  display: grid;
+  width: 42px;
+  height: 42px;
+  place-items: center;
+  border: 1px solid rgba(205, 161, 90, 0.46);
+  background: rgba(7, 7, 6, 0.72);
+  color: var(--champagne);
+  font-size: 1.55rem;
+  line-height: 1;
+  text-decoration: none;
+  transition:
+    background 180ms ease,
+    border-color 180ms ease,
+    color 180ms ease;
+}
+
+.reservation-close:hover,
+.reservation-close:focus {
+  border-color: rgba(234, 216, 178, 0.82);
+  background: rgba(205, 161, 90, 0.18);
+  color: var(--ink);
+  outline: 0;
 }
 
 .reservation-copy {
@@ -1384,18 +1444,19 @@ p {
   }
 
   .events-section::before {
-    inset: 0 0 96px;
+    inset: 0 0 82px;
     width: 100%;
   }
 
   .events-section {
     padding-right: clamp(28px, 7vw, 44px);
+    padding-bottom: var(--events-mobile-bottom, 26px);
     padding-left: clamp(28px, 7vw, 44px);
   }
 
   .events-cta {
     grid-column: 1;
-    margin-top: 22px;
+    margin-top: var(--events-mobile-cta-gap, 12px);
   }
 
   .event-row {
@@ -1478,6 +1539,7 @@ p {
   .events-section {
     width: min(1180px, calc(100% - 24px));
     padding-right: 22px;
+    padding-bottom: var(--events-mobile-bottom, 22px);
     padding-left: 22px;
   }
 
