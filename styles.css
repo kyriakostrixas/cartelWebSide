@@ -865,6 +865,36 @@ p {
   border-left: 1px solid rgba(205, 161, 90, 0.18);
 }
 
+.menu-preview iframe {
+  display: block;
+  width: 100%;
+  height: calc(100% + 54px);
+  min-height: 734px;
+  border: 0;
+  background: #080706;
+  transform: translateY(-54px);
+}
+
+.pdf-frame-crop {
+  width: 100%;
+  height: 100%;
+  min-height: 680px;
+  overflow: hidden;
+  background: #080706;
+}
+
+@media (max-width: 700px) {
+  .menu-preview iframe {
+    height: 100%;
+    min-height: 600px;
+    transform: none;
+  }
+
+  .pdf-frame-crop {
+    min-height: 600px;
+  }
+}
+
 .menu-preview img:last-child {
   margin-bottom: 0;
 }
@@ -1217,6 +1247,10 @@ p {
   box-shadow: 0 28px 84px rgba(0, 0, 0, 0.68);
   padding: clamp(28px, 6vw, 44px);
   text-align: center;
+}
+
+.reservation-message.error .reservation-message-card {
+  border-color: rgba(217, 89, 72, 0.52);
 }
 
 .reservation-message-kicker {

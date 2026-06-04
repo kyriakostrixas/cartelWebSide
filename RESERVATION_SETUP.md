@@ -1,94 +1,112 @@
 # Cartel Reservation System
 
-Run the website with the reservation server:
+The current version uses React, Express, Supabase PostgreSQL, Supabase Storage, and SMTP email.
+
+## Run Locally
+
+Install dependencies:
 
 ```bash
-python3 server.py
+npm install
+```
+
+Start the API:
+
+```bash
+npm run dev:api
+```
+
+Start the React site in a second terminal:
+
+```bash
+npm run dev
 ```
 
 Open:
 
 ```text
-http://127.0.0.1:4173/
+http://127.0.0.1:5173/
 ```
 
-Reservation requests are saved in:
+Admin:
 
 ```text
-reservations.db
+http://127.0.0.1:5173/admin
 ```
 
-## Brevo Email Notifications
+## Environment
 
-The email hook is set up for Brevo SMTP. Edit this visible file:
+Create `.env` from `.env.example` and add:
 
 ```text
-email-settings.env
+SUPABASE_URL=https://your-project-id.supabase.co
+SUPABASE_SERVICE_ROLE_KEY=your-supabase-service-role-key
+
+SMTP_HOST=smtp-relay.brevo.com
+SMTP_PORT=587
+SMTP_USERNAME=your-brevo-smtp-login
+SMTP_PASSWORD=your-brevo-smtp-key
+SMTP_FROM_EMAIL=your-verified-sender-email
+SMTP_FROM_NAME=Cartel Cocktail Bar
+ADMIN_EMAIL=kyriakos.10@live.com
+ADMIN_PASSWORD=choose-a-private-admin-password
+ADMIN_SESSION_SECRET=choose-a-long-random-private-secret
 ```
 
-Use these values:
+For local layout testing, the verification code `000000` works only on `localhost` / `127.0.0.1`.
+
+## Supabase
+
+Run `supabase/schema.sql` in the Supabase SQL Editor.
+
+Data stored in Supabase:
+
+- reservations
+- email verification codes
+- events
+- cocktail cards
+
+Files stored in Supabase Storage:
+
+- editable cocktail card images
+- uploaded menu PDF/image
+
+## Email
+
+Use Brevo SMTP for production. Gmail can fail unless app passwords are configured correctly.
+
+In Brevo, use the transactional SMTP values:
 
 ```text
 SMTP_HOST=smtp-relay.brevo.com
 SMTP_PORT=587
 SMTP_USERNAME=your-brevo-smtp-login
 SMTP_PASSWORD=your-brevo-smtp-key
-SMTP_FROM=your-verified-sender-email
-ADMIN_PASSWORD=choose-a-private-admin-password
+SMTP_FROM_EMAIL=your-verified-brevo-sender-email
+SMTP_FROM_NAME=Cartel Cocktail Bar
+ADMIN_EMAIL=kyriakos.10@live.com
 ```
 
-Start the server:
+`SMTP_FROM_EMAIL` must be a sender verified inside Brevo. It is usually not the same as the SMTP login.
+
+For local testing you can put these values in `email-settings.env`. That file overrides SMTP values from `.env`.
+
+After editing the values, test email:
 
 ```bash
-python3 server.py
+npm run test:email -- your-email@example.com
 ```
 
-Each successful reservation email is sent to the customer and to:
+If SMTP fails, reservations still save as pending. The admin dashboard will show email status as `not sent` where appropriate.
 
-```text
-kyriakos.10@live.com
+## Deploying To Vercel
+
+Add the same `.env` values in Vercel Project Settings > Environment Variables.
+
+Then Vercel can run:
+
+```bash
+npm run build
 ```
 
-If the SMTP variables are not set, reservations still save normally and the notification
-status is stored as `not_sent`.
-
-Use the SMTP login and SMTP key from Brevo, not your Brevo account password.
-The `SMTP_FROM` email must be a sender verified in Brevo.
-
-You can also use a hidden `.env` file if you prefer. If both files exist,
-`email-settings.env` wins.
-
-## Brevo Delivery And Bounce Alerts
-
-The website keeps the admin panel simple: once the admin confirms a reservation
-and Brevo accepts the confirmation email, the admin panel shows the email status
-as sent.
-
-If Brevo later reports that the customer email bounced or was blocked, the app
-sends a private warning email to the admin with the reservation details and asks
-the admin to call the customer by phone. To make those real Brevo delivery events
-work after the website is deployed, configure a Brevo transactional webhook to
-call this public URL:
-
-```text
-https://your-domain.com/api/email/brevo-webhook
-```
-
-Enable hard bounce, soft bounce, invalid email, blocked, error, spam, and
-complaint events. Localhost cannot receive real Brevo webhook events, so this
-part only works automatically when the site has a public domain.
-
-## Admin Dashboard
-
-Open:
-
-```text
-http://127.0.0.1:4173/admin
-```
-
-The admin password is read from `ADMIN_PASSWORD` in `email-settings.env`.
-If it is not set, the local fallback password is:
-
-```text
-cartel-admin
-```
+The API routes are handled by `api/index.js`.

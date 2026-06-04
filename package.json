@@ -1,0 +1,28 @@
+{
+  "name": "cartel-website",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "dev:api": "node server/dev.js",
+    "build": "vite build",
+    "preview": "vite preview dist --host 127.0.0.1 --port 4174",
+    "start": "node server/dev.js",
+    "check": "node --check api/index.js && node --check server/dev.js && node --check server/createApp.js",
+    "test:email": "node server/testEmail.js"
+  },
+  "dependencies": {
+    "@supabase/supabase-js": "^2.45.0",
+    "@vitejs/plugin-react": "^4.3.0",
+    "cookie-parser": "^1.4.6",
+    "dotenv": "^16.4.5",
+    "express": "^4.19.2",
+    "multer": "^1.4.5-lts.1",
+    "nodemailer": "^6.9.14",
+    "react": "^18.3.1",
+    "react-dom": "^18.3.1",
+    "vite": "^5.4.0"
+  },
+  "devDependencies": {}
+}

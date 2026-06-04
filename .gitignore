@@ -3,5 +3,8 @@ email-settings.env
 reservations.db
 reservations.backup-*.db
 .DS_Store
+assets/cartel/uploads/
 __pycache__/
 *.pyc
+node_modules/
+dist/
