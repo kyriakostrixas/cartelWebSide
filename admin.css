@@ -969,6 +969,25 @@ button,
     padding-right: 48px;
   }
 
+  .event-editor-card {
+    gap: 18px;
+    padding: 18px;
+  }
+
+  .event-editor-card label,
+  .event-editor-card input,
+  .event-editor-card .event-remove {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .event-calendar-field input {
+    appearance: none;
+    -webkit-appearance: none;
+    min-height: 58px;
+    text-align: left;
+  }
+
   .header-actions,
   .header-actions > *,
   .action-row,
