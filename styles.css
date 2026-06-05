@@ -1648,6 +1648,22 @@ p {
     grid-template-columns: 1fr;
   }
 
+  .form-row label,
+  .reservation-form input[type="date"] {
+    width: 100%;
+    min-width: 0;
+    max-width: 100%;
+  }
+
+  .reservation-form input[type="date"] {
+    appearance: none;
+    -webkit-appearance: none;
+    display: block;
+    height: 51px;
+    min-height: 51px;
+    line-height: 1.2;
+  }
+
   .email-verification {
     grid-template-columns: 1fr;
   }
