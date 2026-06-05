@@ -896,12 +896,12 @@ p {
   }
 
   .menu-viewer-panel {
-    height: calc(100dvh - 28px - env(safe-area-inset-bottom));
+    height: auto;
+    max-height: calc(100dvh - 28px - env(safe-area-inset-bottom));
   }
 
   .menu-preview {
     padding-bottom: calc(96px + env(safe-area-inset-bottom));
-    overscroll-behavior: contain;
   }
 
   .menu-preview iframe {
