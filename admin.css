@@ -935,6 +935,40 @@ button,
     padding-top: 22px;
   }
 
+  .toolbar {
+    grid-template-columns: 1fr;
+    gap: 16px;
+    padding: 18px;
+  }
+
+  .toolbar label,
+  .toolbar input,
+  .toolbar select,
+  .toolbar .ghost-button {
+    width: 100%;
+    min-width: 0;
+  }
+
+  .toolbar input,
+  .toolbar select,
+  .toolbar .ghost-button {
+    min-height: 58px;
+  }
+
+  .toolbar input[type="date"],
+  .toolbar select {
+    appearance: none;
+    -webkit-appearance: none;
+  }
+
+  .toolbar select {
+    background:
+      linear-gradient(45deg, transparent 50%, var(--ink) 50%) calc(100% - 27px) 50% / 8px 8px no-repeat,
+      linear-gradient(135deg, var(--ink) 50%, transparent 50%) calc(100% - 20px) 50% / 8px 8px no-repeat,
+      rgba(7, 7, 6, 0.72);
+    padding-right: 48px;
+  }
+
   .header-actions,
   .header-actions > *,
   .action-row,
