@@ -211,9 +211,10 @@ function MenuViewer({ menu }) {
         <div className="menu-preview">
           {menu?.url ? (
             isPdf ? (
-              <div className="pdf-frame-crop">
-                <iframe title="Cartel Cocktail Bar menu" src={`${menu.url}#toolbar=0&navpanes=0&scrollbar=0`}></iframe>
-              </div>
+              <>
+                <img src="/cartel/menu-page-1.png?v=full-menu" alt="Cartel Cocktail Bar cocktails menu" />
+                <img src="/cartel/menu-page-2.png?v=full-menu" alt="Cartel Cocktail Bar spirits and drinks menu" />
+              </>
             ) : (
               <img src={menu.url} alt="Cartel Cocktail Bar menu" />
             )
