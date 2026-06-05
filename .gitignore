@@ -1,5 +1,6 @@
 .env
 email-settings.env
+vercel-env-import.env
 reservations.db
 reservations.backup-*.db
 .DS_Store
