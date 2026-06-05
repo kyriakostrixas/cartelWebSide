@@ -886,6 +886,24 @@ p {
 }
 
 @media (max-width: 700px) {
+  .menu-viewer {
+    align-items: start;
+    padding-bottom: calc(82px + env(safe-area-inset-bottom));
+  }
+
+  .menu-viewer:target {
+    place-items: start center;
+  }
+
+  .menu-viewer-panel {
+    height: calc(100dvh - 28px - env(safe-area-inset-bottom));
+  }
+
+  .menu-preview {
+    padding-bottom: calc(96px + env(safe-area-inset-bottom));
+    overscroll-behavior: contain;
+  }
+
   .menu-preview iframe {
     height: 100%;
     min-height: 600px;
@@ -899,6 +917,12 @@ p {
 
 .menu-preview img:last-child {
   margin-bottom: 0;
+}
+
+@media (max-width: 700px) {
+  .menu-preview img:last-child {
+    margin-bottom: calc(24px + env(safe-area-inset-bottom));
+  }
 }
 
 .reservation-viewer {
